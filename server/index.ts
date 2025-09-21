@@ -5,11 +5,40 @@ import http from "http";
 export function initWebSocketServer(server: http.Server) {
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:3000",
+      origin: function (
+        origin: string | undefined,
+        callback: (err: Error | null, allow?: boolean) => void
+      ) {
+        // Allow requests with no origin
+        if (!origin) return callback(null, true);
+
+        const allowedOrigins = [
+          "http://localhost:3000",
+          "http://127.0.0.1:3000",
+          "https://restaurant-mangement-system-seven.vercel.app",
+        ];
+
+        // Check if the origin is explicitly allowed
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        }
+        // Check ngrok patterns
+        else if (
+          origin.match(/http:\/\/192\.168\.\d{1,3}\.\d{1,3}:3000$/) ||
+          origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok\.io$/) ||
+          origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app$/)
+        ) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
       methods: ["GET", "POST"],
+      credentials: true, // This is important for including cookies/auth headers
     },
   });
 
+  // Rest of your Socket.IO event handlers remain the same
   io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
 

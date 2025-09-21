@@ -2,6 +2,7 @@ import express, { Express } from "express";
 import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
+import { Server } from "socket.io";
 
 import { initWebSocketServer } from "./server/index";
 
@@ -29,12 +30,31 @@ const port = process.env.PORT || 5000;
 
 connectDB();
 
-const corsOptions = {
-  origin: [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN as string] : []),
-  ],
+const corsOptions: cors.CorsOptions = {
+  origin: function (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) {
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      ...(process.env.CLIENT_URL ? (process.env.CLIENT_URL as string) : []),
+    ];
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else if (
+      origin.match(/http:\/\/192\.168\.\d{1,3}\.\d{1,3}:3000$/) ||
+      origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok\.io$/) ||
+      origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app$/)
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
