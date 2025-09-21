@@ -28,7 +28,7 @@ export const authenticateWebSocket = (token: string): Promise<DecodedToken> => {
       ) as DecodedToken;
       resolve(decoded);
     } catch (error) {
-      reject(new Error("Invalid authentication token", { cause: error }));
+      reject(new Error("Invalid authentication token"));
     }
   });
 };
