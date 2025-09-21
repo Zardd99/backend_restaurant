@@ -405,9 +405,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "prestart": "npm run build",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "install-prod": "npm install --omit=dev",
-    "ci": "npm ci --omit=dev"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
