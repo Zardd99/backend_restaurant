@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nodemon server.ts",
     "build": "tsc",
-    "start": "node dist/server.ts",
+    "prestart": "npm run build",
+    "start": "node dist/server.js",
     "lint": "eslint",
     "insert-menu": "tsx scripts/insertMenuItem.ts",
     "seed-data": "tsx scripts/insertMenuItem.ts",
@@ -57,7 +58,7 @@
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
-  "main": "server.ts",
+  "main": "server.js",
   "keywords": [],
   "author": "",
   "license": "ISC"

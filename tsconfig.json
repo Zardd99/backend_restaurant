@@ -30,7 +30,10 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "app/scripts/insertMenuItem.ts"
-, "app/server/index.ts", "app/middleware/websocketNotifier.ts", "app/server.ts"  ],
+    "app/scripts/insertMenuItem.ts",
+    "app/server/index.ts",
+    "app/middleware/websocketNotifier.ts",
+    "app/server.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
