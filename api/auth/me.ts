@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getSession } from "next-auth/react";
-import { connectDB } from "../../../utils/db";
-import users from "../../../models/User";
+import { connectDB } from "../../utils/db";
+import users from "../../models/User";
 
 export default async function handler(
   req: NextApiRequest,

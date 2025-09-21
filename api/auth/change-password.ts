@@ -1,8 +1,7 @@
-// pages/api/auth/update.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { getSession } from "next-auth/react";
-import User from "../../../models/User";
-import { connectDB } from "../../../utils/db";
+import User from "../../models/User";
+import { connectDB } from "../../utils/db";
 
 export default async function handler(
   req: NextApiRequest,
@@ -23,32 +22,37 @@ export default async function handler(
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { name, phone } = req.body;
+    const { currentPassword, newPassword } = req.body;
 
-    // Build update object with only provided fields
-    const updateData: { name?: string; phone?: string } = {};
-    if (name !== undefined) updateData.name = name;
-    if (phone !== undefined) updateData.phone = phone;
-
-    // Check if there's anything to update
-    if (Object.keys(updateData).length === 0) {
+    // Validate required fields
+    if (!currentPassword || !newPassword) {
       return res.status(400).json({
-        message: "No valid fields provided for update",
+        message: "Current password and new password are required",
       });
     }
 
-    const user = await User.findByIdAndUpdate(session.user.id, updateData, {
-      new: true,
-      runValidators: true,
-    }).select("-password");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    // Check if new password is different
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        message: "New password must be different from current password",
+      });
     }
+
+    const user = await User.findById(session.user.id).select("+password");
+
+    // Check current password
+    const isMatch = await user!.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    // Update password
+    user!.password = newPassword;
+    await user!.save();
 
     return res.json({
       success: true,
-      user,
+      message: "Password updated successfully",
     });
   } catch (error: unknown) {
     interface ValidationError {

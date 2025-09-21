@@ -5,16 +5,16 @@ import dotenv from "dotenv";
 
 import { initWebSocketServer } from "./server/index";
 
-import orderRoute from "./api/orders/route";
-import menuRoute from "./api/menu/route";
-import reviews from "./api/reviews/route";
-import rating from "./api/reviews/rating/route";
-import category from "./api/category/route";
-import priceHistory from "./api/priceHistory/route";
-import supplierRoute from "./api/supplier/route";
-import receiptRoutes from "./api/receipts/route";
-import userRoutes from "./api/users/route";
-import authRoutes from "./api/auth/route";
+import orderRoute from "./api/orders/orders";
+import menuRoute from "./api/menu/menu";
+import reviews from "./api/reviews/reviews";
+import rating from "./api/reviews/rating/rating";
+import category from "./api/category/category";
+import priceHistory from "./api/priceHistory/priceHistory";
+import supplierRoute from "./api/supplier/supplier";
+import receiptRoutes from "./api/receipts/receipts";
+import userRoutes from "./api/users/users";
+import authRoutes from "./api/auth/auth";
 import connectDB from "./config/db";
 import rateLimiter from "./middleware/rateLimter";
 

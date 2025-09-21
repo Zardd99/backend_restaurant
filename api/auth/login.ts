@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import User from "../../../models/User";
-import { connectDB } from "../../../utils/db";
+import User from "../../models/User";
+import { connectDB } from "../../utils/db";
 import jwt from "jsonwebtoken";
 
 /**

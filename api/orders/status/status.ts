@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import Order from "@/app/models/Order";
-import connectDB from "../../../../config/db";
+import Order from "../../../models/Order";
+import connectDB from "../../../config/db";
 
 interface MongoValidationError extends Error {
   errors?: { [path: string]: { message: string } };
