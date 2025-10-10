@@ -251,3 +251,105 @@ export const updateOrderStatus = async (
     });
   }
 };
+
+/**
+ * GET /api/orders/stats
+ * Get order statistics (earnings, best sellers, etc.)
+ */
+export const getOrderStats = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    console.log("Fetching order statistics...");
+
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+
+    console.log("Date ranges:", { startOfDay, weekAgo, startOfYear });
+
+    // Test basic aggregation first
+    const dailyEarnings = await Order.aggregate([
+      {
+        $match: {
+          orderDate: { $gte: startOfDay },
+          status: { $ne: "cancelled" },
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    ]);
+
+    console.log("Daily earnings result:", dailyEarnings);
+
+    // Weekly earnings (last 7 days)
+    const weeklyEarnings = await Order.aggregate([
+      {
+        $match: {
+          orderDate: { $gte: weekAgo },
+          status: { $ne: "cancelled" },
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    ]);
+
+    console.log("Weekly earnings result:", weeklyEarnings);
+
+    // Yearly earnings
+    const yearlyEarnings = await Order.aggregate([
+      {
+        $match: {
+          orderDate: { $gte: startOfYear },
+          status: { $ne: "cancelled" },
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    ]);
+
+    console.log("Yearly earnings result:", yearlyEarnings);
+
+    // Simple best selling dishes without lookup first
+    const bestSellingDishes = await Order.aggregate([
+      { $match: { status: { $ne: "cancelled" } } },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.menuItem", // Just group by ID first
+          quantity: { $sum: "$items.quantity" },
+          revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+        },
+      },
+      { $sort: { quantity: -1 } },
+      { $limit: 5 },
+    ]);
+
+    console.log("Best selling dishes result:", bestSellingDishes);
+
+    res.json({
+      dailyEarnings: dailyEarnings[0]?.total || 0,
+      weeklyEarnings: weeklyEarnings[0]?.total || 0,
+      yearlyEarnings: yearlyEarnings[0]?.total || 0,
+      bestSellingDishes: bestSellingDishes.map((dish) => ({
+        name: `Dish ${dish._id}`,
+        quantity: dish.quantity,
+        revenue: dish.revenue,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching order statistics:", error);
+    res.status(500).json({
+      message: "Failed to fetch statistics",
+      error: error instanceof Error ? error.message : "Unknown error",
+      stack:
+        process.env.NODE_ENV === "development"
+          ? error instanceof Error
+            ? error.stack
+            : undefined
+          : undefined,
+    });
+  }
+};

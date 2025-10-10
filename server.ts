@@ -2,7 +2,6 @@ import express, { Express } from "express";
 import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
-import { Server } from "socket.io";
 
 import { initWebSocketServer } from "./server/index";
 
@@ -40,7 +39,10 @@ const corsOptions: cors.CorsOptions = {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      ...(process.env.CLIENT_URL ? (process.env.CLIENT_URL as string) : []),
+      "http://localhost:3001",
+      "http://0.0.0.0:3000",
+      ...(process.env.API_URL ? [process.env.API_URL as string] : []),
+      ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN as string] : []),
     ];
 
     if (allowedOrigins.includes(origin)) {
@@ -57,7 +59,53 @@ const corsOptions: cors.CorsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+
+    "Accept",
+    "Accept-Language",
+    "Accept-Encoding",
+    "Cache-Control",
+    "Connection",
+    "Host",
+    "Origin",
+    "Referer",
+    "User-Agent",
+
+    "X-Forwarded-For",
+    "X-Forwarded-Proto",
+    "X-Real-IP",
+
+    "ngrok-skip-browser-warning",
+
+    "X-Vercel-*",
+
+    "X-API-Key",
+    "X-Client-Version",
+    "X-Device-Type",
+
+    "X-CSRF-Token",
+    "X-Frame-Options",
+
+    "Pragma",
+    "Expires",
+    "If-Modified-Since",
+    "If-None-Match",
+  ],
+
+  exposedHeaders: [
+    "Authorization",
+    "Content-Length",
+    "X-Kuma-Revision",
+    "Set-Cookie",
+  ],
+
+  maxAge: 86400,
+
+  preflightContinue: false,
+  optionsSuccessStatus: 200,
 };
 
 app.use(cors(corsOptions));

@@ -9,7 +9,6 @@ export function initWebSocketServer(server: http.Server) {
         origin: string | undefined,
         callback: (err: Error | null, allow?: boolean) => void
       ) {
-        // Allow requests with no origin
         if (!origin) return callback(null, true);
 
         const allowedOrigins = [
@@ -18,12 +17,9 @@ export function initWebSocketServer(server: http.Server) {
           "https://restaurant-mangement-system-seven.vercel.app",
         ];
 
-        // Check if the origin is explicitly allowed
         if (allowedOrigins.includes(origin)) {
           callback(null, true);
-        }
-        // Check ngrok patterns
-        else if (
+        } else if (
           origin.match(/http:\/\/192\.168\.\d{1,3}\.\d{1,3}:3000$/) ||
           origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok\.io$/) ||
           origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app$/)

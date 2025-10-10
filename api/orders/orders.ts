@@ -6,12 +6,15 @@ import {
   updateOrder,
   deleteOrder,
   updateOrderStatus,
+  getOrderStats,
 } from "../../controllers/orderController";
 import { authenticate, authorize } from "../../middleware/auth";
+import Order from "../../models/Order";
 
 const router = express.Router();
 
 router.use(authenticate);
+
 router.post("/debug/order", (req, res) => {
   console.log("Received order data:", req.body);
   console.log("Headers:", req.headers);
@@ -29,6 +32,13 @@ router.get(
   authorize("admin", "manager", "chef", "waiter", "cashier"),
   getOrderById
 );
+
+router.get(
+  "/stats",
+  authorize("admin", "manager", "chef", "waiter", "cashier"),
+  getOrderStats
+);
+
 router.post(
   "/",
   authenticate,

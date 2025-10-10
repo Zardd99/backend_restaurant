@@ -35,7 +35,7 @@ export abstract class BaseOperation {
       try {
         return JSON.parse(data);
       } catch (error: unknown) {
-        throw new Error("Invalid JSON data provided", error as Error);
+        throw new Error("Invalid JSON data provided");
       }
     }
     return defaultData;

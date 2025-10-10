@@ -1,0 +1,1 @@
+{"version":3,"file":"priceHistory.js","sourceRoot":"","sources":["../../../api/priceHistory/priceHistory.ts"],"names":[],"mappings":";;;;;AAAA,sDAA8B;AAC9B,qFAGkD;AAElD,MAAM,MAAM,GAAG,iBAAO,CAAC,MAAM,EAAE,CAAC;AAEhC,MAAM,CAAC,GAAG,CAAC,GAAG,EAAE,6CAAoB,CAAC,CAAC;AACtC,MAAM,CAAC,GAAG,CAAC,MAAM,EAAE,4CAAmB,CAAC,CAAC;AAExC,kBAAe,MAAM,CAAC"}

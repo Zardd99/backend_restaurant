@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import MenuItem, { IMenuItem } from "../models/MenuItem";
+import Category from "../models/Category";
 
 interface FilterConditions {
   category?: string;
@@ -97,7 +98,7 @@ export const getMenuId = async (req: Request, res: Response): Promise<void> => {
  * - name: string (required)
  * - description: string
  * - price: number (required)
- * - category: ObjectId (required)
+ * - category: ObjectId
  * - dietaryTags: string[]
  * - availability: boolean
  * - imageUrl: string
@@ -109,6 +110,20 @@ export const createMenu = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Handle category name to ObjectId conversion
+    if (req.body.category && typeof req.body.category === "string") {
+      let category = await Category.findOne({ name: req.body.category });
+
+      if (!category) {
+        // Create new category if it doesn't exist
+        category = new Category({ name: req.body.category });
+        await category.save();
+      }
+
+      // Replace category name with ObjectId
+      req.body.category = category._id;
+    }
+
     const menuItem: IMenuItem = new MenuItem(req.body);
     const savedItem = await menuItem.save();
     await savedItem.populate("category", "name");
@@ -137,6 +152,20 @@ export const updateMenu = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Handle category name to ObjectId conversion
+    if (req.body.category && typeof req.body.category === "string") {
+      let category = await Category.findOne({ name: req.body.category });
+
+      if (!category) {
+        // Create new category if it doesn't exist
+        category = new Category({ name: req.body.category });
+        await category.save();
+      }
+
+      // Replace category name with ObjectId
+      req.body.category = category._id;
+    }
+
     const menuItem = await MenuItem.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
@@ -150,5 +179,32 @@ export const updateMenu = async (
     res.json(menuItem);
   } catch (error) {
     res.status(400).json({ message: "Error updating menu item", error });
+  }
+};
+
+/**
+ * DELETE /api/menu/:id
+ * Deletes a menuItem by ID
+ *
+ * URL Parameters:
+ * - id: menuItem ID to delete
+ *
+ * Response: Returns deleted review data
+ */
+export const deleteMenuItem = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const menuItem = await MenuItem.findByIdAndDelete(req.params.id);
+
+    if (!menuItem) {
+      res.status(404).json({ message: "Order not found" });
+      return;
+    }
+
+    res.json({ message: "Order deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
   }
 };
