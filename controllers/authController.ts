@@ -30,7 +30,7 @@ const generateToken = (id: string): string => {
  */
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password, role, phone } = req.body;
+    const { name, email, password, role } = req.body;
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -52,8 +52,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       name,
       email,
       password,
-      role: role || "customer",
-      phone,
+      role: role || "customer"
+      
     });
 
     // Generate token

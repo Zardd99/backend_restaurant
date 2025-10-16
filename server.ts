@@ -43,6 +43,7 @@ const corsOptions: cors.CorsOptions = {
       "http://0.0.0.0:3000",
       ...(process.env.API_URL ? [process.env.API_URL as string] : []),
       ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN as string] : []),
+      ...(process.env.IP ? [process.env.IP as string] : []),
     ];
 
     if (allowedOrigins.includes(origin)) {
