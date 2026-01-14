@@ -38,7 +38,7 @@ const menuItemSchema = new mongoose_1.Schema({
     name: { type: String, required: true, unique: true },
     description: { type: String, required: true },
     price: { type: Number, required: true },
-    category: { type: mongoose_1.Schema.Types.ObjectId, ref: "Category", required: true },
+    category: { type: mongoose_1.Schema.Types.ObjectId, ref: "Category" },
     image: { type: String, default: "" },
     ingredientReferences: [
         {

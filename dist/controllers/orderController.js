@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateOrderStatus = exports.deleteOrder = exports.updateOrder = exports.createOrder = exports.getOrderById = exports.getAllOrders = void 0;
+exports.getOrderStats = exports.updateOrderStatus = exports.deleteOrder = exports.updateOrder = exports.createOrder = exports.getOrderById = exports.getAllOrders = void 0;
 const Order_1 = __importDefault(require("../models/Order"));
 const getAllOrders = async (req, res) => {
     try {
@@ -146,4 +146,83 @@ const updateOrderStatus = async (req, res) => {
     }
 };
 exports.updateOrderStatus = updateOrderStatus;
+const getOrderStats = async (req, res) => {
+    var _a, _b, _c;
+    try {
+        console.log("Fetching order statistics...");
+        const today = new Date();
+        const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const startOfYear = new Date(today.getFullYear(), 0, 1);
+        console.log("Date ranges:", { startOfDay, weekAgo, startOfYear });
+        const dailyEarnings = await Order_1.default.aggregate([
+            {
+                $match: {
+                    orderDate: { $gte: startOfDay },
+                    status: { $ne: "cancelled" },
+                },
+            },
+            { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+        ]);
+        console.log("Daily earnings result:", dailyEarnings);
+        const weeklyEarnings = await Order_1.default.aggregate([
+            {
+                $match: {
+                    orderDate: { $gte: weekAgo },
+                    status: { $ne: "cancelled" },
+                },
+            },
+            { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+        ]);
+        console.log("Weekly earnings result:", weeklyEarnings);
+        const yearlyEarnings = await Order_1.default.aggregate([
+            {
+                $match: {
+                    orderDate: { $gte: startOfYear },
+                    status: { $ne: "cancelled" },
+                },
+            },
+            { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+        ]);
+        console.log("Yearly earnings result:", yearlyEarnings);
+        const bestSellingDishes = await Order_1.default.aggregate([
+            { $match: { status: { $ne: "cancelled" } } },
+            { $unwind: "$items" },
+            {
+                $group: {
+                    _id: "$items.menuItem",
+                    quantity: { $sum: "$items.quantity" },
+                    revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+                },
+            },
+            { $sort: { quantity: -1 } },
+            { $limit: 5 },
+        ]);
+        console.log("Best selling dishes result:", bestSellingDishes);
+        res.json({
+            dailyEarnings: ((_a = dailyEarnings[0]) === null || _a === void 0 ? void 0 : _a.total) || 0,
+            weeklyEarnings: ((_b = weeklyEarnings[0]) === null || _b === void 0 ? void 0 : _b.total) || 0,
+            yearlyEarnings: ((_c = yearlyEarnings[0]) === null || _c === void 0 ? void 0 : _c.total) || 0,
+            bestSellingDishes: bestSellingDishes.map((dish) => ({
+                name: `Dish ${dish._id}`,
+                quantity: dish.quantity,
+                revenue: dish.revenue,
+            })),
+        });
+    }
+    catch (error) {
+        console.error("Error fetching order statistics:", error);
+        res.status(500).json({
+            message: "Failed to fetch statistics",
+            error: error instanceof Error ? error.message : "Unknown error",
+            stack: process.env.NODE_ENV === "development"
+                ? error instanceof Error
+                    ? error.stack
+                    : undefined
+                : undefined,
+        });
+    }
+};
+exports.getOrderStats = getOrderStats;
 //# sourceMappingURL=orderController.js.map

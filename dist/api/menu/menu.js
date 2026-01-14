@@ -10,5 +10,6 @@ router.get("/", menuController_1.getAllMenu);
 router.get("/:id", menuController_1.getMenuId);
 router.post("/", menuController_1.createMenu);
 router.put("/:id", menuController_1.updateMenu);
+router.delete("/:id", menuController_1.deleteMenuItem);
 exports.default = router;
 //# sourceMappingURL=menu.js.map

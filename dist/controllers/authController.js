@@ -17,7 +17,7 @@ const generateToken = (id) => {
 };
 const register = async (req, res) => {
     try {
-        const { name, email, password, role, phone } = req.body;
+        const { name, email, password, role } = req.body;
         if (!name || !email || !password) {
             res.status(400).json({
                 message: "Name, email, and password are required",
@@ -33,8 +33,7 @@ const register = async (req, res) => {
             name,
             email,
             password,
-            role: role || "customer",
-            phone,
+            role: role || "customer"
         });
         const token = generateToken(user._id.toString());
         res.status(201).json({

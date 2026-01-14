@@ -15,6 +15,7 @@ router.post("/debug/order", (req, res) => {
 });
 router.get("/", (0, auth_1.authorize)("admin", "manager", "chef", "waiter", "cashier"), orderController_1.getAllOrders);
 router.get("/:id", (0, auth_1.authorize)("admin", "manager", "chef", "waiter", "cashier"), orderController_1.getOrderById);
+router.get("/stats", (0, auth_1.authorize)("admin", "manager", "chef", "waiter", "cashier"), orderController_1.getOrderStats);
 router.post("/", auth_1.authenticate, (0, auth_1.authorize)("admin", "manager", "waiter"), orderController_1.createOrder);
 router.put("/:id", (0, auth_1.authorize)("admin", "manager", "waiter"), orderController_1.updateOrder);
 router.delete("/:id", (0, auth_1.authorize)("admin", "manager"), orderController_1.deleteOrder);
