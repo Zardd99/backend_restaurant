@@ -34,7 +34,7 @@ interface FilterConditions {
 
 export const getAllOrders = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const {
@@ -87,7 +87,7 @@ export const getAllOrders = async (
  */
 export const getOrderById = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const order = await Order.findById(req.params.id)
@@ -118,7 +118,7 @@ export const getOrderById = async (
  */
 export const createOrder = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     console.log("Creating order with data:", req.body); // Add this for debugging
@@ -157,7 +157,7 @@ export const createOrder = async (
  */
 export const updateOrder = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const order = await Order.findByIdAndUpdate(req.params.id, req.body, {
@@ -189,7 +189,7 @@ export const updateOrder = async (
  */
 export const deleteOrder = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const order = await Order.findByIdAndDelete(req.params.id);
@@ -208,7 +208,7 @@ export const deleteOrder = async (
 // updateOrderStatus API endpoint
 export const updateOrderStatus = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { status } = req.body;
@@ -232,7 +232,7 @@ export const updateOrderStatus = async (
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       { status },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
       .populate("customer", "name email")
       .populate("items.menuItem", "name price");
@@ -258,98 +258,195 @@ export const updateOrderStatus = async (
  */
 export const getOrderStats = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     console.log("Fetching order statistics...");
 
     const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    today.setHours(0, 0, 0, 0);
 
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - 7);
 
     const startOfYear = new Date(today.getFullYear(), 0, 1);
 
-    console.log("Date ranges:", { startOfDay, weekAgo, startOfYear });
+    console.log("Date ranges calculated:", {
+      todayStart: today,
+      weekStart: startOfWeek,
+      yearStart: startOfYear,
+    });
 
-    // Test basic aggregation first
-    const dailyEarnings = await Order.aggregate([
+    // 1. Get today's earnings and order count
+    const todayStatsPromise = Order.aggregate([
       {
         $match: {
-          orderDate: { $gte: startOfDay },
+          orderDate: { $gte: today },
           status: { $ne: "cancelled" },
         },
       },
-      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$totalAmount" },
+          orderCount: { $sum: 1 },
+        },
+      },
     ]);
 
-    console.log("Daily earnings result:", dailyEarnings);
-
-    // Weekly earnings (last 7 days)
-    const weeklyEarnings = await Order.aggregate([
+    // 2. Get weekly earnings
+    const weeklyStatsPromise = Order.aggregate([
       {
         $match: {
-          orderDate: { $gte: weekAgo },
+          orderDate: { $gte: startOfWeek },
           status: { $ne: "cancelled" },
         },
       },
-      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$totalAmount" },
+        },
+      },
     ]);
 
-    console.log("Weekly earnings result:", weeklyEarnings);
-
-    // Yearly earnings
-    const yearlyEarnings = await Order.aggregate([
+    // 3. Get yearly earnings
+    const yearlyStatsPromise = Order.aggregate([
       {
         $match: {
           orderDate: { $gte: startOfYear },
           status: { $ne: "cancelled" },
         },
       },
-      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$totalAmount" },
+        },
+      },
     ]);
 
-    console.log("Yearly earnings result:", yearlyEarnings);
+    // 4. Get today's orders by status
+    const todayStatusStatsPromise = Order.aggregate([
+      {
+        $match: {
+          orderDate: { $gte: today },
+        },
+      },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
 
-    // Simple best selling dishes without lookup first
-    const bestSellingDishes = await Order.aggregate([
+    // 5. Get best selling dishes
+    const bestSellingPromise = Order.aggregate([
       { $match: { status: { $ne: "cancelled" } } },
       { $unwind: "$items" },
       {
         $group: {
-          _id: "$items.menuItem", // Just group by ID first
-          quantity: { $sum: "$items.quantity" },
-          revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+          _id: "$items.menuItem",
+          totalQuantity: { $sum: "$items.quantity" },
+          totalRevenue: {
+            $sum: {
+              $multiply: ["$items.quantity", "$items.price"],
+            },
+          },
         },
       },
-      { $sort: { quantity: -1 } },
+      { $sort: { totalQuantity: -1 } },
       { $limit: 5 },
+      {
+        $lookup: {
+          from: "menuitems", // Your collection name
+          localField: "_id",
+          foreignField: "_id",
+          as: "menuItemInfo",
+        },
+      },
+      {
+        $project: {
+          name: { $arrayElemAt: ["$menuItemInfo.name", 0] },
+          quantity: "$totalQuantity",
+          revenue: "$totalRevenue",
+        },
+      },
     ]);
 
-    console.log("Best selling dishes result:", bestSellingDishes);
+    // Run all promises in parallel
+    const [
+      todayStats,
+      weeklyStats,
+      yearlyStats,
+      todayStatusStats,
+      bestSellingDishes,
+    ] = await Promise.all([
+      todayStatsPromise,
+      weeklyStatsPromise,
+      yearlyStatsPromise,
+      todayStatusStatsPromise,
+      bestSellingPromise,
+    ]);
 
-    res.json({
-      dailyEarnings: dailyEarnings[0]?.total || 0,
-      weeklyEarnings: weeklyEarnings[0]?.total || 0,
-      yearlyEarnings: yearlyEarnings[0]?.total || 0,
-      bestSellingDishes: bestSellingDishes.map((dish) => ({
-        name: `Dish ${dish._id}`,
-        quantity: dish.quantity,
-        revenue: dish.revenue,
-      })),
+    console.log("Aggregation results:", {
+      todayStats,
+      weeklyStats,
+      yearlyStats,
+      todayStatusStats,
+      bestSellingDishes,
     });
-  } catch (error) {
-    console.error("Error fetching order statistics:", error);
-    res.status(500).json({
-      message: "Failed to fetch statistics",
-      error: error instanceof Error ? error.message : "Unknown error",
-      stack:
-        process.env.NODE_ENV === "development"
-          ? error instanceof Error
-            ? error.stack
-            : undefined
-          : undefined,
+
+    // Calculate average order value for today
+    const todayOrderCount = todayStats[0]?.orderCount || 0;
+    const dailyEarnings = todayStats[0]?.totalEarnings || 0;
+    const avgOrderValue =
+      todayOrderCount > 0 ? dailyEarnings / todayOrderCount : 0;
+
+    // Convert status stats to object
+    const ordersByStatus: Record<string, number> = {};
+    todayStatusStats.forEach((stat: any) => {
+      ordersByStatus[stat._id] = stat.count;
+    });
+
+    // Transform best selling dishes
+    const transformedBestSellers = bestSellingDishes.map((dish: any) => ({
+      name: dish.name || "Unknown Dish",
+      quantity: dish.quantity || 0,
+      revenue: dish.revenue || 0,
+    }));
+
+    // Send response
+    const responseData = {
+      dailyEarnings,
+      weeklyEarnings: weeklyStats[0]?.totalEarnings || 0,
+      yearlyEarnings: yearlyStats[0]?.totalEarnings || 0,
+      todayOrderCount,
+      avgOrderValue,
+      ordersByStatus,
+      bestSellingDishes: transformedBestSellers,
+    };
+
+    console.log("Sending response:", responseData);
+    res.json(responseData);
+  } catch (error: any) {
+    console.error("Error in getOrderStats:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
+
+    // Return default values instead of error
+    res.json({
+      dailyEarnings: 0,
+      weeklyEarnings: 0,
+      yearlyEarnings: 0,
+      todayOrderCount: 0,
+      avgOrderValue: 0,
+      ordersByStatus: {},
+      bestSellingDishes: [],
+      message: "Statistics loaded with default values",
     });
   }
 };

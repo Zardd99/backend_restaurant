@@ -25,32 +25,32 @@ router.post("/debug/order", (req, res) => {
 router.get(
   "/",
   authorize("admin", "manager", "chef", "waiter", "cashier"),
-  getAllOrders
+  getAllOrders,
 );
 router.get(
   "/:id",
   authorize("admin", "manager", "chef", "waiter", "cashier"),
-  getOrderById
+  getOrderById,
 );
 
 router.get(
   "/stats",
   authorize("admin", "manager", "chef", "waiter", "cashier"),
-  getOrderStats
+  getOrderStats,
 );
 
 router.post(
   "/",
   authenticate,
   authorize("admin", "manager", "waiter"),
-  createOrder
+  createOrder,
 );
 router.put("/:id", authorize("admin", "manager", "waiter"), updateOrder);
 router.delete("/:id", authorize("admin", "manager"), deleteOrder);
 router.patch(
   "/:id/status",
   authorize("admin", "manager", "chef", "waiter"),
-  updateOrderStatus
+  updateOrderStatus,
 );
 
 export default router;
