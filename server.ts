@@ -16,6 +16,7 @@ import supplierRoute from "./api/supplier/supplier";
 import receiptRoutes from "./api/receipts/receipts";
 import userRoutes from "./api/users/users";
 import authRoutes from "./api/auth/auth";
+import inventoryRoutes from "./api/inventory/inventory-endpoints";
 import connectDB from "./config/db";
 import rateLimiter from "./middleware/rateLimter";
 import { setupDependencies, DependencyContainer } from "./config/dependencies";
@@ -149,6 +150,7 @@ app.use("/api/supplier", supplierRoute);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+// app.use("/api/inventory", inventoryRoutes);
 
 // Root route
 app.get("/", (req, res) => {

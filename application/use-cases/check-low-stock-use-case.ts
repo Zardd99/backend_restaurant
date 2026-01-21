@@ -11,7 +11,14 @@ export class CheckLowStockUseCase {
 
   async execute(): Promise<
     Result<{
-      lowStockIngredients: number;
+      lowStockIngredients: Array<{
+        id: string;
+        name: string;
+        currentStock: number;
+        minStock: number;
+        reorderPoint: number;
+        unit: string;
+      }>;
       notificationsCreated: number;
     }>
   > {
@@ -60,7 +67,14 @@ export class CheckLowStockUseCase {
       }
 
       return ok({
-        lowStockIngredients: lowStockIngredients.length,
+        lowStockIngredients: lowStockIngredients.map((ingredient) => ({
+          id: ingredient.id,
+          name: ingredient.name,
+          currentStock: ingredient.getStock(),
+          minStock: ingredient.minStock,
+          reorderPoint: ingredient.reorderPoint,
+          unit: ingredient.unit,
+        })),
         notificationsCreated,
       });
     } catch (error) {

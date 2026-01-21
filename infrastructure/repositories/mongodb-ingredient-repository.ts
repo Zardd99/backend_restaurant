@@ -2,17 +2,14 @@ import { IngredientRepository } from "../../repositories/ingredient-repository";
 import { Ingredient } from "../../models/ingredient";
 import { Result, ok, err } from "../../shared/result";
 import mongoose from "mongoose";
+import { IIngredient } from "../../models/Supplier";
 
 export class MongoDBIngredientRepository implements IngredientRepository {
-  private ingredientModel: mongoose.Model<any>;
-
-  constructor(ingredientModel: mongoose.Model<any>) {
-    this.ingredientModel = ingredientModel;
-  }
+  constructor(private ingredientModel: mongoose.Model<IIngredient>) {}
 
   async findById(id: string): Promise<Result<Ingredient | null>> {
     try {
-      const doc = await this.ingredientModel.findById(id);
+      const doc = await this.ingredientModel.findById(id).lean();
       if (!doc) {
         return ok(null);
       }
@@ -24,8 +21,9 @@ export class MongoDBIngredientRepository implements IngredientRepository {
         doc.unit,
         doc.currentStock,
         doc.minStock,
+        doc.reorderPoint || doc.minStock * 1.5,
         doc.costPerUnit,
-        doc.supplier.toString(),
+        doc.supplier,
         doc.category,
         doc.shelfLife,
         doc.isActive,
@@ -41,9 +39,11 @@ export class MongoDBIngredientRepository implements IngredientRepository {
 
   async findByIds(ids: string[]): Promise<Result<Ingredient[]>> {
     try {
-      const docs = await this.ingredientModel.find({
-        _id: { $in: ids },
-      });
+      const docs = await this.ingredientModel
+        .find({
+          _id: { $in: ids },
+        })
+        .lean();
 
       const ingredients: Ingredient[] = [];
       for (const doc of docs) {
@@ -54,8 +54,9 @@ export class MongoDBIngredientRepository implements IngredientRepository {
           doc.unit,
           doc.currentStock,
           doc.minStock,
+          doc.reorderPoint || doc.minStock * 1.5,
           doc.costPerUnit,
-          doc.supplier.toString(),
+          doc.supplier,
           doc.category,
           doc.shelfLife,
           doc.isActive,
@@ -78,7 +79,7 @@ export class MongoDBIngredientRepository implements IngredientRepository {
 
   async findAll(): Promise<Result<Ingredient[]>> {
     try {
-      const docs = await this.ingredientModel.find({ isActive: true });
+      const docs = await this.ingredientModel.find({ isActive: true }).lean();
       const ingredients: Ingredient[] = [];
 
       for (const doc of docs) {
@@ -89,8 +90,9 @@ export class MongoDBIngredientRepository implements IngredientRepository {
           doc.unit,
           doc.currentStock,
           doc.minStock,
+          doc.reorderPoint || doc.minStock * 1.5,
           doc.costPerUnit,
-          doc.supplier.toString(),
+          doc.supplier,
           doc.category,
           doc.shelfLife,
           doc.isActive,
@@ -119,6 +121,7 @@ export class MongoDBIngredientRepository implements IngredientRepository {
         unit: ingredient.unit,
         currentStock: ingredient.getStock(),
         minStock: ingredient.minStock,
+        reorderPoint: ingredient.reorderPoint,
         costPerUnit: ingredient.costPerUnit,
         supplier: ingredient.supplierId,
         category: ingredient.category,
@@ -126,11 +129,16 @@ export class MongoDBIngredientRepository implements IngredientRepository {
         isActive: ingredient.isActive,
       };
 
-      const doc = await this.ingredientModel.findByIdAndUpdate(
-        ingredient.id,
-        updateData,
-        { new: true, upsert: true },
-      );
+      const doc = await this.ingredientModel
+        .findByIdAndUpdate(ingredient.id, updateData, {
+          new: true,
+          upsert: true,
+        })
+        .lean();
+
+      if (!doc) {
+        return err(new Error("Failed to save ingredient"));
+      }
 
       return Ingredient.create(
         doc._id.toString(),
@@ -139,8 +147,9 @@ export class MongoDBIngredientRepository implements IngredientRepository {
         doc.unit,
         doc.currentStock,
         doc.minStock,
+        doc.reorderPoint || doc.minStock * 1.5,
         doc.costPerUnit,
-        doc.supplier.toString(),
+        doc.supplier,
         doc.category,
         doc.shelfLife,
         doc.isActive,
@@ -156,10 +165,12 @@ export class MongoDBIngredientRepository implements IngredientRepository {
 
   async findLowStockIngredients(): Promise<Result<Ingredient[]>> {
     try {
-      const docs = await this.ingredientModel.find({
-        isActive: true,
-        $expr: { $lte: ["$currentStock", "$minStock"] },
-      });
+      const docs = await this.ingredientModel
+        .find({
+          isActive: true,
+          $expr: { $lte: ["$currentStock", "$reorderPoint"] },
+        })
+        .lean();
 
       const ingredients: Ingredient[] = [];
       for (const doc of docs) {
@@ -170,8 +181,9 @@ export class MongoDBIngredientRepository implements IngredientRepository {
           doc.unit,
           doc.currentStock,
           doc.minStock,
+          doc.reorderPoint || doc.minStock * 1.5,
           doc.costPerUnit,
-          doc.supplier.toString(),
+          doc.supplier,
           doc.category,
           doc.shelfLife,
           doc.isActive,

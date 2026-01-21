@@ -13,4 +13,10 @@ export interface LowStockNotificationRepository {
   findByIngredientId(
     ingredientId: string,
   ): Promise<Result<LowStockNotification | null>>;
+
+  // Optional: Find recent notifications (implement if needed)
+  findRecentByIngredientId?: (
+    ingredientId: string,
+    hours: number,
+  ) => Promise<Result<LowStockNotification | null>>;
 }

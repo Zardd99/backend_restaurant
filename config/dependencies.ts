@@ -2,18 +2,12 @@ import { InventoryManager } from "../application/managers/inventory-manager";
 import { CheckLowStockUseCase } from "../application/use-cases/check-low-stock-use-case";
 import { ConsumeIngredientsUseCase } from "../application/use-cases/consume-ingredients-use-case";
 import { MongoDBIngredientRepository } from "../infrastructure/repositories/mongodb-ingredient-repository";
+import { MongoDBMenuItemRepository } from "../infrastructure/repositories/mongodb-menu-item-repository";
 import { NodemailerEmailService } from "../infrastructure/services/nodemailer-email-service";
+import { MockLowStockNotificationRepository } from "../infrastructure/repositories/mock-low-stock-notification-repository";
 import mongoose from "mongoose";
-import { Ingredient as IngredientModel } from "../models/Supplier"; // Mongoose model
-import { Ingredient as DomainIngredient } from "../models/ingredient"; // Domain model (if needed)
-import { IngredientRepository } from "../repositories/ingredient-repository";
-import { EmailService } from "../services/email-service";
-
-// Stub/Mock repositories for missing dependencies
-import {
-  MockMenuItemRepository,
-  MockLowStockNotificationRepository,
-} from "./stubs/mock-repositories";
+import { Ingredient } from "../models/Supplier"; // Import the model, not the type
+import MenuItemModel from "../models/MenuItem";
 
 export class DependencyContainer {
   private static instance: DependencyContainer;
@@ -52,12 +46,11 @@ export class DependencyContainer {
 export function setupDependencies(): DependencyContainer {
   const container = DependencyContainer.getInstance();
 
-  // Setup repositories
-  const ingredientRepository = new MongoDBIngredientRepository(IngredientModel);
+  // Setup repositories - pass the mongoose model directly
+  const ingredientRepository = new MongoDBIngredientRepository(Ingredient);
   container.register("IngredientRepository", ingredientRepository);
 
-  // Setup mock repositories for missing dependencies
-  const menuItemRepository = new MockMenuItemRepository();
+  const menuItemRepository = new MongoDBMenuItemRepository(MenuItemModel);
   container.register("MenuItemRepository", menuItemRepository);
 
   const lowStockNotificationRepository =
@@ -99,6 +92,7 @@ export function setupDependencies(): DependencyContainer {
     consumeIngredientsUseCase,
     emailService,
     lowStockNotificationRepository,
+    ingredientRepository,
     {
       recipients: [
         {
@@ -112,10 +106,12 @@ export function setupDependencies(): DependencyContainer {
       ],
       checkIntervalMinutes: parseInt(process.env.ALERT_INTERVAL || "60"),
       thresholdPercentage: 0.2,
+      enableEmailAlerts: process.env.ENABLE_EMAIL_ALERTS === "true",
+      enableRealTimeAlerts: process.env.ENABLE_REAL_TIME_ALERTS === "true",
     },
   );
   container.register("InventoryManager", inventoryManager);
 
-  console.log("Dependencies setup complete");
+  console.log("✅ Dependencies setup complete");
   return container;
 }

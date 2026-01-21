@@ -1,5 +1,7 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
+export type ObjectIdType = mongoose.Types.ObjectId;
+
 export interface ISupplier extends Document {
   name: string;
   contactPerson: string;
@@ -12,7 +14,7 @@ export interface ISupplier extends Document {
     zipCode: string;
     country: string;
   };
-  suppliedIngredients: Types.ObjectId[]; // References to Ingredient documents
+  suppliedIngredients: ObjectIdType[];
   paymentTerms: string;
   isActive: boolean;
   notes?: string;
@@ -36,23 +38,24 @@ const supplierSchema: Schema = new Schema(
     isActive: { type: Boolean, default: true },
     notes: { type: String },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true },
 );
 
 // Ingredient Schema (for inventory tracking)
 export interface IIngredient extends Document {
   name: string;
   description: string;
-  unit: string; // e.g., "kg", "g", "liters", "units"
+  unit: string;
   currentStock: number;
-  minStock: number; // Threshold for low stock notification
+  minStock: number;
+  reorderPoint: number;
   costPerUnit: number;
-  supplier: Types.ObjectId; // Reference to Supplier
+  supplier: ObjectIdType;
   category: string;
-  shelfLife?: number; // In days
+  shelfLife?: number;
   isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const ingredientSchema: Schema = new Schema(
@@ -62,15 +65,14 @@ const ingredientSchema: Schema = new Schema(
     unit: { type: String, required: true },
     currentStock: { type: Number, default: 0 },
     minStock: { type: Number, required: true },
+    reorderPoint: { type: Number, required: true },
     costPerUnit: { type: Number, required: true },
     supplier: { type: Schema.Types.ObjectId, ref: "Supplier", required: true },
     category: { type: String, required: true },
-    shelfLife: { type: Number }, // In days
+    shelfLife: { type: Number },
     isActive: { type: Boolean, default: true },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true },
 );
 
 // Purchase Order Schema
@@ -122,7 +124,7 @@ const purchaseOrderSchema: Schema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Stock Adjustment Schema (for manual stock corrections)
@@ -158,7 +160,7 @@ const stockAdjustmentSchema: Schema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Low Stock Notification Schema
@@ -188,7 +190,7 @@ const lowStockNotificationSchema: Schema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Indexes for better performance
@@ -202,17 +204,22 @@ lowStockNotificationSchema.index({ acknowledged: 1, ingredient: 1 });
 export const Supplier = mongoose.model<ISupplier>("Supplier", supplierSchema);
 export const Ingredient = mongoose.model<IIngredient>(
   "Ingredient",
-  ingredientSchema
+  ingredientSchema,
 );
+
 export const PurchaseOrder = mongoose.model<IPurchaseOrder>(
   "PurchaseOrder",
-  purchaseOrderSchema
+  purchaseOrderSchema,
 );
 export const StockAdjustment = mongoose.model<IStockAdjustment>(
   "StockAdjustment",
-  stockAdjustmentSchema
+  stockAdjustmentSchema,
 );
 export const LowStockNotification = mongoose.model<ILowStockNotification>(
   "LowStockNotification",
-  lowStockNotificationSchema
+  lowStockNotificationSchema,
 );
+
+export const toPlainObject = <T>(doc: any): T => {
+  return doc?.toObject?.() || doc;
+};
