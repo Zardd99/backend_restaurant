@@ -53,4 +53,38 @@ router.patch(
   updateOrderStatus,
 );
 
+router.post('/:id/inventory', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { deductionStatus, deductionData, warning, timestamp } = req.body;
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    order.inventoryDeduction = {
+      status: deductionStatus,
+      data: deductionData,
+      warning,
+      timestamp,
+      lastUpdated: new Date()
+    };
+
+    await order.save();
+    
+    // Emit WebSocket update
+    req.app.get('io').emit('order_updated', order);
+
+    res.json({
+      success: true,
+      message: 'Order inventory info updated',
+      order
+    });
+  } catch (error) {
+    console.error('Error updating order inventory info:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+});
+
 export default router;

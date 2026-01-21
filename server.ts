@@ -5,23 +5,9 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 
 import { initWebSocketServer } from "./server/index";
-
-import orderRoute from "./api/orders/orders";
-import menuRoute from "./api/menu/menu";
-import reviews from "./api/reviews/reviews";
-import rating from "./api/reviews/rating/rating";
-import category from "./api/category/category";
-import priceHistory from "./api/priceHistory/priceHistory";
-import supplierRoute from "./api/supplier/supplier";
-import receiptRoutes from "./api/receipts/receipts";
-import userRoutes from "./api/users/users";
-import authRoutes from "./api/auth/auth";
-import inventoryRoutes from "./api/inventory/inventory-endpoints";
 import connectDB from "./config/db";
 import rateLimiter from "./middleware/rateLimter";
 import { setupDependencies, DependencyContainer } from "./config/dependencies";
-import { InventoryAlertController } from "./interfaces/controllers/inventory-alert-controller";
-import { InventoryManager } from "./application/managers/inventory-manager";
 
 dotenv.config();
 
@@ -51,6 +37,10 @@ const corsOptions: cors.CorsOptions = {
       "http://10.0.2.2:5000",
       "http://localhost:64102",
       "http://localhost:64102/",
+      "http://localhost:61491/",
+      "http://localhost:53628",
+      "http://localhost:53628/",
+
       ...(process.env.API_URL ? [process.env.API_URL as string] : []),
       ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN as string] : []),
       ...(process.env.IP ? [process.env.IP as string] : []),
@@ -114,26 +104,53 @@ app.use(express.json());
 app.use(rateLimiter());
 app.use(express.urlencoded({ extended: true }));
 
-// Setup dependencies and start inventory alerts
-setupDependencies();
+// Setup dependencies
+console.log("🔄 Setting up dependencies...");
+try {
+  setupDependencies();
+  console.log("✅ Dependencies setup complete");
+} catch (error) {
+  console.error("❌ Failed to setup dependencies:", error);
+  process.exit(1);
+}
+
+// Get the inventory manager with proper typing
 const container = DependencyContainer.getInstance();
-const inventoryManager =
-  container.resolve<InventoryManager>("InventoryManager");
 
-// Start automatic alerts
-inventoryManager.startAutomaticAlerts();
-console.log("Automatic low stock alerts started");
+// Option 1: Use a type assertion if you know what it returns
+// Define a minimal interface for InventoryManager
+interface InventoryManagerType {
+  startAutomaticAlerts: () => void;
+  stopAutomaticAlerts: () => void;
+}
 
-// Inventory alert routes
-const alertController = new InventoryAlertController();
-app.post(
-  "/api/inventory/check-low-stock",
-  alertController.triggerLowStockCheck.bind(alertController),
-);
-app.post(
-  "/api/inventory/consume",
-  alertController.consumeIngredients.bind(alertController),
-);
+let inventoryManager: InventoryManagerType | undefined;
+
+try {
+  inventoryManager = container.resolve(
+    "InventoryManager",
+  ) as InventoryManagerType;
+  console.log("✅ InventoryManager resolved");
+
+  // Start automatic alerts
+  inventoryManager.startAutomaticAlerts();
+  console.log("✅ Automatic low stock alerts started");
+} catch (error) {
+  console.error("❌ Failed to resolve InventoryManager:", error);
+}
+
+// Define routes
+import orderRoute from "./api/orders/orders";
+import menuRoute from "./api/menu/menu";
+import reviews from "./api/reviews/reviews";
+import rating from "./api/reviews/rating/rating";
+import category from "./api/category/category";
+import priceHistory from "./api/priceHistory/priceHistory";
+import supplierRoute from "./api/supplier/supplier";
+import receiptRoutes from "./api/receipts/receipts";
+import userRoutes from "./api/users/users";
+import authRoutes from "./api/auth/auth";
+import inventoryRoutes from "./api/inventory/inventory-router";
 
 // Other API routes
 app.use("/api/orders", orderRoute);
@@ -146,14 +163,14 @@ app.use("/api/supplier", supplierRoute);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-// app.use("/api/inventory", inventoryRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 // Root route
 app.get("/", (req, res) => {
   res.json({
     message: "Restaurant Management API",
     version: "1.0.0",
-    inventoryAlerts: "Active",
+    inventoryAlerts: inventoryManager ? "Active" : "Disabled",
   });
 });
 
@@ -164,7 +181,7 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     database:
       mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-    inventoryAlerts: "running",
+    inventoryAlerts: inventoryManager ? "running" : "disabled",
   });
 });
 
@@ -194,23 +211,27 @@ process.on("SIGTERM", () => {
   console.log("SIGTERM received. Shutting down gracefully...");
 
   // Stop automatic alerts
-  inventoryManager.stopAutomaticAlerts();
-  console.log("Automatic low stock alerts stopped");
+  if (inventoryManager) {
+    inventoryManager.stopAutomaticAlerts();
+    console.log("Automatic low stock alerts stopped");
+  }
 
   // Close MongoDB connection
-  //   if (mongoose.connection.readyState === 1) {
-  //     mongoose.connection.close(false);
-  //   } else {
-  //     process.exit(0);
-  //   }
+  if (mongoose.connection.readyState === 1) {
+    mongoose.connection.close(false);
+  } else {
+    process.exit(0);
+  }
 });
 
 process.on("SIGINT", () => {
   console.log("SIGINT received. Shutting down gracefully...");
 
   // Stop automatic alerts
-  inventoryManager.stopAutomaticAlerts();
-  console.log("Automatic low stock alerts stopped");
+  if (inventoryManager) {
+    inventoryManager.stopAutomaticAlerts();
+    console.log("Automatic low stock alerts stopped");
+  }
 
   // Close MongoDB connection
   if (mongoose.connection.readyState === 1) {
@@ -222,10 +243,10 @@ process.on("SIGINT", () => {
 
 // Start server
 server.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`🚀 Server listening on port ${port}`);
+  console.log(`📁 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(
-    `Inventory alerts running every ${process.env.ALERT_INTERVAL || 60} minutes`,
+    `🔔 Inventory alerts: ${inventoryManager ? "Active" : "Disabled"}`,
   );
 });
 

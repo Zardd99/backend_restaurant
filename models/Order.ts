@@ -7,6 +7,14 @@ export interface IOrderItem {
   price: number;
 }
 
+export interface InventoryDeduction {
+  status: "pending" | "completed" | "failed" | "skipped";
+  data?: any;
+  warning?: string;
+  timestamp?: Date;
+  lastUpdated?: Date;
+}
+
 export interface IOrder extends Document {
   items: IOrderItem[];
   totalAmount: number;
@@ -21,9 +29,12 @@ export interface IOrder extends Document {
   tableNumber?: number;
   orderType: "dine-in" | "takeaway" | "delivery";
   orderDate: Date;
+  inventoryDeduction?: InventoryDeduction;
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface IOrderDocument extends IOrder, Document {}
 
 const orderItemSchema: Schema = new Schema({
   menuItem: { type: Schema.Types.ObjectId, ref: "MenuItem", required: true },
@@ -56,10 +67,21 @@ const orderSchema: Schema = new Schema(
       required: true,
     },
     orderDate: { type: Date, default: Date.now },
+    inventoryDeduction: {
+      status: {
+        type: String,
+        enum: ["pending", "completed", "failed", "skipped"],
+        default: "pending",
+      },
+      data: mongoose.Schema.Types.Mixed,
+      warning: String,
+      timestamp: Date,
+      lastUpdated: Date,
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-export default mongoose.model<IOrder>("Order", orderSchema);
+export default mongoose.model<IOrderDocument>("Order", orderSchema);

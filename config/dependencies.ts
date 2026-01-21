@@ -5,9 +5,17 @@ import { MongoDBIngredientRepository } from "../infrastructure/repositories/mong
 import { MongoDBMenuItemRepository } from "../infrastructure/repositories/mongodb-menu-item-repository";
 import { NodemailerEmailService } from "../infrastructure/services/nodemailer-email-service";
 import { MockLowStockNotificationRepository } from "../infrastructure/repositories/mock-low-stock-notification-repository";
-import mongoose from "mongoose";
-import { Ingredient } from "../models/Supplier"; // Import the model, not the type
+import { Ingredient } from "../models/Supplier";
 import MenuItemModel from "../models/MenuItem";
+
+// Define interfaces locally if needed
+export interface AlertConfig {
+  recipients: Array<{ email: string; name?: string }>;
+  checkIntervalMinutes: number;
+  thresholdPercentage: number;
+  enableEmailAlerts: boolean;
+  enableRealTimeAlerts: boolean;
+}
 
 export class DependencyContainer {
   private static instance: DependencyContainer;
@@ -46,7 +54,7 @@ export class DependencyContainer {
 export function setupDependencies(): DependencyContainer {
   const container = DependencyContainer.getInstance();
 
-  // Setup repositories - pass the mongoose model directly
+  // Setup repositories
   const ingredientRepository = new MongoDBIngredientRepository(Ingredient);
   container.register("IngredientRepository", ingredientRepository);
 
@@ -86,30 +94,33 @@ export function setupDependencies(): DependencyContainer {
   );
   container.register("ConsumeIngredientsUseCase", consumeIngredientsUseCase);
 
-  // Setup manager
+  // Setup manager with proper AlertConfig
+  const alertConfig: AlertConfig = {
+    recipients: [
+      {
+        email: process.env.ADMIN_EMAIL || "admin@restaurant.com",
+        name: "Restaurant Manager",
+      },
+      {
+        email: process.env.MANAGER_EMAIL || "manager@restaurant.com",
+        name: "Inventory Manager",
+      },
+    ],
+    checkIntervalMinutes: parseInt(process.env.ALERT_INTERVAL || "60"),
+    thresholdPercentage: 0.2,
+    enableEmailAlerts: process.env.ENABLE_EMAIL_ALERTS === "true",
+    enableRealTimeAlerts: process.env.ENABLE_REAL_TIME_ALERTS === "true",
+  };
+
   const inventoryManager = new InventoryManager(
     checkLowStockUseCase,
     consumeIngredientsUseCase,
     emailService,
     lowStockNotificationRepository,
     ingredientRepository,
-    {
-      recipients: [
-        {
-          email: process.env.ADMIN_EMAIL || "admin@restaurant.com",
-          name: "Restaurant Manager",
-        },
-        {
-          email: process.env.MANAGER_EMAIL || "manager@restaurant.com",
-          name: "Inventory Manager",
-        },
-      ],
-      checkIntervalMinutes: parseInt(process.env.ALERT_INTERVAL || "60"),
-      thresholdPercentage: 0.2,
-      enableEmailAlerts: process.env.ENABLE_EMAIL_ALERTS === "true",
-      enableRealTimeAlerts: process.env.ENABLE_REAL_TIME_ALERTS === "true",
-    },
+    alertConfig,
   );
+
   container.register("InventoryManager", inventoryManager);
 
   console.log("✅ Dependencies setup complete");
