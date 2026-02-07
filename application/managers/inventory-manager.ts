@@ -6,6 +6,9 @@ import { IngredientRepository } from "../../repositories/ingredient-repository";
 import { Result, ok, err } from "../../shared/result";
 import { ConsumptionResult } from "../../models/ingredient";
 
+/**
+ * Configuration for the Inventory Alerting System.
+ */
 export interface AlertConfig {
   recipients: Array<{ email: string; name?: string }>;
   checkIntervalMinutes: number;
@@ -20,8 +23,17 @@ export interface OrderItem {
   menuItemName?: string;
 }
 
+/**
+ * InventoryManager Orchestrator
+ * * Responsibilities:
+ * 1. Coordinates ingredient consumption during order processing.
+ * 2. Manages scheduled low-stock audits via a polling interval.
+ * 3. Handles an asynchronous real-time alert queue to prevent blocking the main order flow.
+ */
 export class InventoryManager {
   private alertCheckInterval?: NodeJS.Timeout;
+
+  // Queue to manage high-frequency alerts without overwhelming the email service
   private realTimeAlertQueue: Array<{
     ingredientId: string;
     ingredientName: string;
@@ -40,6 +52,10 @@ export class InventoryManager {
     private alertConfig: AlertConfig,
   ) {}
 
+  /**
+   * Main entry point for inventory reduction when a sale occurs.
+   * Processes items sequentially to ensure stock integrity.
+   */
   async processOrder(orderItems: OrderItem[]): Promise<
     Result<{
       successful: boolean;
@@ -60,10 +76,9 @@ export class InventoryManager {
         if (consumeResult.success) {
           results.push(...consumeResult.value);
 
-          // Check for real-time low stock alerts
+          // Trigger alerts for ingredients that dropped below safety thresholds
           for (const consumption of consumeResult.value) {
             if (consumption.needsReorder) {
-              // Get ingredient details to include unit
               const ingredientResult = await this.ingredientRepository.findById(
                 consumption.ingredientId,
               );
@@ -126,6 +141,10 @@ export class InventoryManager {
     }
   }
 
+  /**
+   * Manual or Scheduled check for all low stock items.
+   * Distinguishes between 'Critical' (at/below Min) and 'Low' (at/below Reorder Point).
+   */
   async checkAndAlertLowStock(): Promise<
     Result<{
       lowStockCount: number;
@@ -135,7 +154,6 @@ export class InventoryManager {
     }>
   > {
     try {
-      // Check for low stock
       const checkResult = await this.checkLowStockUseCase.execute();
       if (!checkResult.success) {
         return checkResult;
@@ -152,7 +170,6 @@ export class InventoryManager {
         });
       }
 
-      // Send email alerts if enabled
       let emailsSent = 0;
       if (
         this.alertConfig.enableEmailAlerts &&
@@ -166,14 +183,10 @@ export class InventoryManager {
             recipient,
             emailContent,
           );
-
-          if (emailResult.success) {
-            emailsSent++;
-          }
+          if (emailResult.success) emailsSent++;
         }
       }
 
-      // Count critical vs low stock
       const criticalStockCount = lowStockIngredients.filter(
         (ing) => ing.currentStock <= ing.minStock,
       ).length;
@@ -193,6 +206,10 @@ export class InventoryManager {
     }
   }
 
+  /**
+   * Queues an alert for asynchronous processing.
+   * This prevents latency in the checkout/order flow.
+   */
   private async sendRealTimeAlert(alertData: {
     ingredientId: string;
     ingredientName: string;
@@ -203,15 +220,17 @@ export class InventoryManager {
   }): Promise<void> {
     if (!this.alertConfig.enableRealTimeAlerts) return;
 
-    // Add to queue and process asynchronously
     this.realTimeAlertQueue.push(alertData);
 
-    // Process queue
+    // Start processing if the queue was previously empty
     if (this.realTimeAlertQueue.length === 1) {
       setTimeout(() => this.processRealTimeAlerts(), 1000);
     }
   }
 
+  /**
+   * Recursive worker that processes one alert at a time from the queue.
+   */
   private async processRealTimeAlerts(): Promise<void> {
     if (this.realTimeAlertQueue.length === 0) return;
 
@@ -219,7 +238,6 @@ export class InventoryManager {
     if (!alert) return;
 
     try {
-      // Send real-time alert
       const emailContent = this.createRealTimeAlertContent([
         {
           ingredientName: alert.ingredientName,
@@ -236,13 +254,19 @@ export class InventoryManager {
         });
       }
     } catch (error) {
-      console.error("Failed to send real-time alert:", error);
+      console.error(
+        "Critical Failure: Real-time alert worker encountered an error:",
+        error,
+      );
     }
 
-    // Process next alert
+    // Recurse to handle the next item in queue
     this.processRealTimeAlerts();
   }
 
+  /**
+   * Starts the background polling task for periodic stock audits.
+   */
   startAutomaticAlerts(): void {
     if (this.alertCheckInterval) {
       clearInterval(this.alertCheckInterval);
@@ -255,16 +279,20 @@ export class InventoryManager {
       this.alertConfig.checkIntervalMinutes * 60 * 1000,
     );
 
-    // Initial check
     this.checkAndAlertLowStock();
   }
 
+  /**
+   * Clear the interval to prevent memory leaks or floating tasks during shutdown.
+   */
   stopAutomaticAlerts(): void {
     if (this.alertCheckInterval) {
       clearInterval(this.alertCheckInterval);
       this.alertCheckInterval = undefined;
     }
   }
+
+  // --- Content Generators ---
 
   private createLowStockAlertContent(
     ingredients: Array<{
@@ -301,7 +329,7 @@ export class InventoryManager {
 
     return {
       subject: `Low Stock Alert - ${ingredients.length} Item(s) Need Attention`,
-      body: `The following ingredients are running low on stock:\n\n${itemsList}\n\nPlease replenish these items as soon as possible.\n\nThis is an automated alert from the Inventory Management System.\n\nTimestamp: ${new Date().toLocaleString()}`,
+      body: `The following ingredients are running low on stock:\n\n${itemsList}\n\nPlease replenish these items as soon as possible.\n\nTimestamp: ${new Date().toLocaleString()}`,
       isHtml: false,
     };
   }
@@ -323,7 +351,7 @@ export class InventoryManager {
 
     return {
       subject: `Real-time Low Stock Alert`,
-      body: `An ingredient has reached low stock levels:\n\n${itemsList}\n\nThis is a real-time alert triggered by recent sales.\n\nPlease check inventory immediately.\n\nTimestamp: ${new Date().toLocaleString()}`,
+      body: `An ingredient has reached low stock levels:\n\n${itemsList}\n\nThis alert was triggered by recent sales activity.\n\nTimestamp: ${new Date().toLocaleString()}`,
       isHtml: false,
     };
   }

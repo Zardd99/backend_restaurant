@@ -8,7 +8,6 @@ import { MockLowStockNotificationRepository } from "../infrastructure/repositori
 import { Ingredient } from "../models/Supplier";
 import MenuItemModel from "../models/MenuItem";
 
-// Define interfaces locally if needed
 export interface AlertConfig {
   recipients: Array<{ email: string; name?: string }>;
   checkIntervalMinutes: number;
@@ -17,12 +16,23 @@ export interface AlertConfig {
   enableRealTimeAlerts: boolean;
 }
 
+/**
+ * DependencyContainer (Inversion of Control Container)
+ * * Purpose: Manages the lifecycle and resolution of application services.
+ * * Pattern: Singleton.
+ * * Using a DI container allows for easier unit testing by swapping
+ * real implementations (e.g., MongoDB) with mocks.
+ */
 export class DependencyContainer {
   private static instance: DependencyContainer;
+  // Internal registry for dependency instances
   private dependencies = new Map<string, any>();
 
   private constructor() {}
 
+  /**
+   * Retrieves the global instance of the container.
+   */
   static getInstance(): DependencyContainer {
     if (!DependencyContainer.instance) {
       DependencyContainer.instance = new DependencyContainer();
@@ -30,10 +40,17 @@ export class DependencyContainer {
     return DependencyContainer.instance;
   }
 
+  /**
+   * Binds an implementation to a specific key.
+   */
   register<T>(key: string, instance: T): void {
     this.dependencies.set(key, instance);
   }
 
+  /**
+   * Resolves and returns a dependency.
+   * @throws Error if the key is not registered.
+   */
   resolve<T>(key: string): T {
     const instance = this.dependencies.get(key);
     if (!instance) {
@@ -51,16 +68,24 @@ export class DependencyContainer {
   }
 }
 
+/**
+ * setupDependencies
+ * * The Application's Bootstrap Function.
+ * This is where we define which concrete implementations the application uses.
+ */
 export function setupDependencies(): DependencyContainer {
   const container = DependencyContainer.getInstance();
 
-  // Setup repositories
+  // --- Phase 1: Infrastructure & Repositories ---
+  // These provide the data access layer for the application.
   const ingredientRepository = new MongoDBIngredientRepository(Ingredient);
   container.register("IngredientRepository", ingredientRepository);
 
   const menuItemRepository = new MongoDBMenuItemRepository(MenuItemModel);
   container.register("MenuItemRepository", menuItemRepository);
 
+  // NOTE: Currently using a Mock repository for notifications.
+  // TODO: Replace with MongoDBLowStockNotificationRepository for production persistence.
   const lowStockNotificationRepository =
     new MockLowStockNotificationRepository();
   container.register(
@@ -68,7 +93,7 @@ export function setupDependencies(): DependencyContainer {
     lowStockNotificationRepository,
   );
 
-  // Setup email service
+  // --- Phase 2: External Services ---
   const emailService = new NodemailerEmailService({
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: parseInt(process.env.SMTP_PORT || "587"),
@@ -81,7 +106,8 @@ export function setupDependencies(): DependencyContainer {
   });
   container.register("EmailService", emailService);
 
-  // Setup use cases
+  // --- Phase 3: Domain Use Cases ---
+  // We inject the repositories created in Phase 1 into our business logic.
   const checkLowStockUseCase = new CheckLowStockUseCase(
     ingredientRepository,
     lowStockNotificationRepository,
@@ -94,7 +120,8 @@ export function setupDependencies(): DependencyContainer {
   );
   container.register("ConsumeIngredientsUseCase", consumeIngredientsUseCase);
 
-  // Setup manager with proper AlertConfig
+  // --- Phase 4: Application Managers ---
+  // High-level orchestrators that require multiple use cases and services.
   const alertConfig: AlertConfig = {
     recipients: [
       {
@@ -107,7 +134,7 @@ export function setupDependencies(): DependencyContainer {
       },
     ],
     checkIntervalMinutes: parseInt(process.env.ALERT_INTERVAL || "60"),
-    thresholdPercentage: 0.2,
+    thresholdPercentage: 0.2, // Safety buffer before triggering alerts
     enableEmailAlerts: process.env.ENABLE_EMAIL_ALERTS === "true",
     enableRealTimeAlerts: process.env.ENABLE_REAL_TIME_ALERTS === "true",
   };
@@ -123,6 +150,6 @@ export function setupDependencies(): DependencyContainer {
 
   container.register("InventoryManager", inventoryManager);
 
-  console.log("✅ Dependencies setup complete");
+  console.log("✅ Application dependency graph initialized successfully");
   return container;
 }

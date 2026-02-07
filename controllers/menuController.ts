@@ -12,23 +12,25 @@ interface FilterConditions {
 
 /**
  * GET /api/menu
- * Retrieve all menu items with optional filtering by chefSpecial, category, dietary tags, availability, and search text
+ * Fetch all menu items with optional query-based filtering
  *
- * @param req - Express Request object with query parameters
- * @param res - Express Response object
+ * @param req - Express request containing optional query parameters
+ * @param res - Express response object
  *
- * Query Parameters:
- * - chefSpecial: Filter by chef special status (true/false) , menu?chefSpecial=true
- * - category: Filter by category name
- * - dietary: Filter by dietary tags
- * - search: Text search across menu item names and descriptions
- * - available: Filter by availability status (true/false)
+ * Supported Query Parameters:
+ * - chefSpecial: Filter menu items marked as chef's special ("true" | "false")
+ *   Example: /api/menu?chefSpecial=true
+ * - category: Filter by category identifier or name
+ * - dietary: Filter by dietary tags (e.g., vegetarian, vegan)
+ * - search: Full-text search across menu item names and descriptions
+ * - available: Filter by availability status ("true" | "false")
  *
- * @returns JSON response with array of menu items or error message
+ * @returns
+ * - Array of menu items sorted alphabetically by name
  */
 export const getAllMenu = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { category, dietary, search, available, chefSpecial } = req.query;
@@ -58,22 +60,23 @@ export const getAllMenu = async (
 
 /**
  * GET /api/menu/:id
- * Retrieve a single menu item by ID with populated category information
+ * Fetch a single menu item by its unique identifier
  *
- * @param req - Express Request object with ID parameter
- * @param res - Express Response object
+ * @param req - Express request containing menu item ID in URL params
+ * @param res - Express response object
  *
  * URL Parameters:
- * - id: Menu item ID (MongoDB ObjectId)
+ * - id: Menu item MongoDB ObjectId
  *
- * @returns JSON response with menu item details or error message
+ * @returns
+ * - Menu item document with populated category information
+ * - 404 error if item does not exist
  */
-
 export const getMenuId = async (req: Request, res: Response): Promise<void> => {
   try {
     const menuItem = await MenuItem.findById(req.params.id).populate(
       "category",
-      "name description"
+      "name description",
     );
 
     if (!menuItem) {
@@ -89,25 +92,30 @@ export const getMenuId = async (req: Request, res: Response): Promise<void> => {
 
 /**
  * POST /api/menu
- * Create a new menu item in the database
+ * Create a new menu item
  *
- * @param req - Express Request object with menu item data in body
- * @param res - Express Response object
+ * @param req - Express request containing menu item data in request body
+ * @param res - Express response object
  *
- * Request Body: Complete menu item data following IMenuItem interface
+ * Request Body:
  * - name: string (required)
  * - description: string
  * - price: number (required)
- * - category: ObjectId
+ * - category: Category name or ObjectId
  * - dietaryTags: string[]
  * - availability: boolean
  * - imageUrl: string
  *
- * @returns JSON response with created menu item or error message
+ * Behavior:
+ * - Automatically creates a category if the provided category name does not exist
+ * - Converts category name to ObjectId before saving
+ *
+ * @returns
+ * - Newly created menu item with populated category data
  */
 export const createMenu = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     // Handle category name to ObjectId conversion
@@ -115,18 +123,18 @@ export const createMenu = async (
       let category = await Category.findOne({ name: req.body.category });
 
       if (!category) {
-        // Create new category if it doesn't exist
+        // Create category if it does not exist
         category = new Category({ name: req.body.category });
         await category.save();
       }
 
-      // Replace category name with ObjectId
       req.body.category = category._id;
     }
 
     const menuItem: IMenuItem = new MenuItem(req.body);
     const savedItem = await menuItem.save();
     await savedItem.populate("category", "name");
+
     res.status(201).json(savedItem);
   } catch (error) {
     res.status(400).json({ message: "Error creating menu item", error });
@@ -135,21 +143,28 @@ export const createMenu = async (
 
 /**
  * PUT /api/menu/:id
- * Update an existing menu item by ID with complete data replacement
+ * Update an existing menu item by ID
  *
- * @param req - Express Request object with ID parameter and update data in body
- * @param res - Express Response object
+ * @param req - Express request containing menu item ID and updated data
+ * @param res - Express response object
  *
  * URL Parameters:
- * - id: Menu item ID (MongoDB ObjectId)
+ * - id: Menu item MongoDB ObjectId
  *
- * Request Body: Complete menu item data following IMenuItem interface
+ * Request Body:
+ * - Full or partial menu item data following IMenuItem interface
  *
- * @returns JSON response with updated menu item or error message
+ * Behavior:
+ * - Converts category name to ObjectId if necessary
+ * - Runs schema validators during update
+ *
+ * @returns
+ * - Updated menu item with populated category
+ * - 404 error if menu item does not exist
  */
 export const updateMenu = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     // Handle category name to ObjectId conversion
@@ -157,12 +172,10 @@ export const updateMenu = async (
       let category = await Category.findOne({ name: req.body.category });
 
       if (!category) {
-        // Create new category if it doesn't exist
         category = new Category({ name: req.body.category });
         await category.save();
       }
 
-      // Replace category name with ObjectId
       req.body.category = category._id;
     }
 
@@ -184,26 +197,31 @@ export const updateMenu = async (
 
 /**
  * DELETE /api/menu/:id
- * Deletes a menuItem by ID
+ * Remove a menu item from the system
+ *
+ * @param req - Express request containing menu item ID
+ * @param res - Express response object
  *
  * URL Parameters:
- * - id: menuItem ID to delete
+ * - id: Menu item MongoDB ObjectId
  *
- * Response: Returns deleted review data
+ * @returns
+ * - Success message upon deletion
+ * - 404 error if menu item does not exist
  */
 export const deleteMenuItem = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const menuItem = await MenuItem.findByIdAndDelete(req.params.id);
 
     if (!menuItem) {
-      res.status(404).json({ message: "Order not found" });
+      res.status(404).json({ message: "Menu item not found" });
       return;
     }
 
-    res.json({ message: "Order deleted successfully" });
+    res.json({ message: "Menu item deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }

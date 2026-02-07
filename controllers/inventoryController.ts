@@ -1,8 +1,19 @@
 /**
- * API Endpoints for Inventory Management
+ * Inventory Management API Endpoints
  *
- * Purpose: HTTP interface for ingredient operations
- * Size: < 300 lines
+ * Responsibility:
+ * - Exposes HTTP endpoints for inventory-related operations
+ * - Coordinates between InventoryManager and domain repositories
+ *
+ * Scope:
+ * - Ingredient availability checks
+ * - Stock consumption & previews
+ * - Inventory dashboard & alerts
+ * - Manual and bulk stock updates
+ *
+ * Note:
+ * - Business rules are delegated to application/domain layers
+ * - This layer focuses on request validation and response shaping
  */
 
 import { ok, err } from "../shared/result";
@@ -19,12 +30,17 @@ export class InventoryEndpoints {
   private menuItemRepository: MenuItemRepository;
 
   constructor() {
+    // Resolve dependencies from central container
     const container = DependencyContainer.getInstance();
     this.inventoryManager = container.resolve("InventoryManager");
     this.ingredientRepository = container.resolve("IngredientRepository");
     this.menuItemRepository = container.resolve("MenuItemRepository");
   }
 
+  /**
+   * Lazily re-resolve dependencies if they are missing
+   * Useful for environments with delayed initialization or hot reloads
+   */
   private async getDependencies() {
     if (
       !this.inventoryManager ||
@@ -36,6 +52,7 @@ export class InventoryEndpoints {
       this.ingredientRepository = container.resolve("IngredientRepository");
       this.menuItemRepository = container.resolve("MenuItemRepository");
     }
+
     return {
       inventoryManager: this.inventoryManager!,
       ingredientRepository: this.ingredientRepository!,
@@ -45,12 +62,22 @@ export class InventoryEndpoints {
 
   /**
    * POST /api/inventory/check-availability
-   * Check if ingredients are available for menu items
+   *
+   * Checks whether requested menu items can be fulfilled
+   * based on current ingredient stock levels.
+   *
+   * Request Body:
+   * - items: [{ menuItemId, quantity }]
+   *
+   * Response:
+   * - availability per menu item
+   * - missing ingredients if stock is insufficient
    */
   async checkAvailability(req: Request, res: Response): Promise<void> {
     try {
       const { items } = req.body;
 
+      // Validate request payload
       if (!Array.isArray(items) || items.length === 0) {
         res.status(400).json({
           success: false,
@@ -64,11 +91,13 @@ export class InventoryEndpoints {
 
       const results = [];
 
+      // Evaluate availability per requested menu item
       for (const item of items) {
         const { menuItemId, quantity } = item;
 
         const menuItemResult = await menuItemRepository.findById(menuItemId);
 
+        // Handle missing menu item gracefully
         if (!menuItemResult.success || !menuItemResult.value) {
           results.push({
             menuItemId,
@@ -82,6 +111,7 @@ export class InventoryEndpoints {
         const menuItem = menuItemResult.value;
         const missingIngredients: string[] = [];
 
+        // Validate ingredient stock requirements
         for (const ref of menuItem.getRequiredIngredients()) {
           const ingredientResult = await ingredientRepository.findById(
             ref.ingredientId,
@@ -117,13 +147,24 @@ export class InventoryEndpoints {
       res.status(500).json({ message: "Server error", error });
     }
   }
-  // Update consumeIngredients to match DeductionResult format:
+
+  /**
+   * POST /api/inventory/consume
+   *
+   * Deducts ingredient stock based on confirmed menu item orders.
+   * Multiple requests are processed and results are aggregated
+   * by ingredient.
+   *
+   * Request Body:
+   * - requests: [{ menuItemId, quantity }]
+   */
   async consumeIngredients(req: Request, res: Response): Promise<void> {
     try {
       const { requests } = req.body;
       const { inventoryManager, ingredientRepository, menuItemRepository } =
         await this.getDependencies();
 
+      // Validate request payload
       if (!Array.isArray(requests) || requests.length === 0) {
         res.status(400).json({
           ok: false,
@@ -132,51 +173,41 @@ export class InventoryEndpoints {
         return;
       }
 
-      // First, aggregate all ingredient requirements
+      /**
+       * Aggregate ingredient requirements across all requests.
+       * This prevents duplicate deductions and ensures consistency.
+       */
       const ingredientRequirements = new Map<string, number>();
 
       for (const req of requests) {
         const { menuItemId, quantity } = req;
 
         const menuItemResult = await menuItemRepository.findById(menuItemId);
-
-        if (!menuItemResult.success || !menuItemResult.value) {
-          continue;
-        }
+        if (!menuItemResult.success || !menuItemResult.value) continue;
 
         const menuItem = menuItemResult.value;
 
         for (const ref of menuItem.getRequiredIngredients()) {
-          const currentRequirement =
-            ingredientRequirements.get(ref.ingredientId) || 0;
+          const current = ingredientRequirements.get(ref.ingredientId) || 0;
+
           ingredientRequirements.set(
             ref.ingredientId,
-            currentRequirement + ref.quantity * quantity,
+            current + ref.quantity * quantity,
           );
         }
       }
 
-      // Convert to items format for InventoryManager (aggregated)
-      const items = Array.from(ingredientRequirements.entries()).map(
-        ([ingredientId, totalRequired]) => ({
-          ingredientId,
-          quantity: totalRequired,
-        }),
-      );
-
-      // Note: You might need to adjust your InventoryManager to handle direct ingredient deductions
-      // If your InventoryManager expects menu items, you'll need a different approach
-
-      // Alternative: Process each request individually but aggregate results
+      /**
+       * Process orders individually to leverage InventoryManager logic
+       * while aggregating final deduction results.
+       */
       const allDeductionResults: any[] = [];
 
       for (const req of requests) {
         const items = [{ menuItemId: req.menuItemId, quantity: req.quantity }];
         const result = await inventoryManager.processOrder(items);
 
-        if (!result.success) {
-          continue;
-        }
+        if (!result.success) continue;
 
         for (const consumption of result.value.consumedIngredients) {
           const ingredientResult = await ingredientRepository.findById(
@@ -186,19 +217,17 @@ export class InventoryEndpoints {
           if (ingredientResult.success && ingredientResult.value) {
             const ingredient = ingredientResult.value;
 
-            // Check if we already have this ingredient in results
             const existingIndex = allDeductionResults.findIndex(
               (r) => r.ingredientId === consumption.ingredientId,
             );
 
+            // Merge consumption records per ingredient
             if (existingIndex >= 0) {
-              // Sum with existing
               allDeductionResults[existingIndex].consumedQuantity +=
                 consumption.consumedQuantity;
               allDeductionResults[existingIndex].remainingStock =
                 ingredient.getStock();
             } else {
-              // Add new entry
               allDeductionResults.push({
                 ingredientId: consumption.ingredientId,
                 ingredientName: ingredient.name,
@@ -227,13 +256,19 @@ export class InventoryEndpoints {
     }
   }
 
-  // Update previewDeduction method:
+  /**
+   * POST /api/inventory/preview-deduction
+   *
+   * Simulates ingredient consumption without mutating stock.
+   * Useful for order previews and validation before confirmation.
+   */
   async previewDeduction(req: Request, res: Response): Promise<void> {
     try {
       const { requests } = req.body;
       const { menuItemRepository, ingredientRepository } =
         await this.getDependencies();
 
+      // Validate request payload
       if (!Array.isArray(requests) || requests.length === 0) {
         res.status(400).json({
           ok: false,
@@ -242,7 +277,10 @@ export class InventoryEndpoints {
         return;
       }
 
-      // Use a Map to aggregate by ingredientId
+      /**
+       * Aggregate preview consumption by ingredient
+       * to present a clean and accurate summary.
+       */
       const ingredientMap = new Map<
         string,
         {
@@ -260,10 +298,7 @@ export class InventoryEndpoints {
         const { menuItemId, quantity } = req;
 
         const menuItemResult = await menuItemRepository.findById(menuItemId);
-
-        if (!menuItemResult.success || !menuItemResult.value) {
-          continue;
-        }
+        if (!menuItemResult.success || !menuItemResult.value) continue;
 
         const menuItem = menuItemResult.value;
 
@@ -272,20 +307,16 @@ export class InventoryEndpoints {
             ref.ingredientId,
           );
 
-          if (!ingredientResult.success || !ingredientResult.value) {
-            continue;
-          }
+          if (!ingredientResult.success || !ingredientResult.value) continue;
 
           const ingredient = ingredientResult.value;
           const consumedQuantity = ref.quantity * quantity;
           const ingredientId = ingredient.id;
 
           if (ingredientMap.has(ingredientId)) {
-            // Sum with existing consumption for this ingredient
-            const existing = ingredientMap.get(ingredientId)!;
-            existing.consumedQuantity += consumedQuantity;
+            ingredientMap.get(ingredientId)!.consumedQuantity +=
+              consumedQuantity;
           } else {
-            // First time seeing this ingredient in the order
             ingredientMap.set(ingredientId, {
               ingredientId,
               ingredientName: ingredient.name,
@@ -299,7 +330,7 @@ export class InventoryEndpoints {
         }
       }
 
-      // Convert map to array and calculate remaining stock
+      // Derive remaining stock and alert flags
       const previews = Array.from(ingredientMap.values()).map((item) => {
         const remainingStock = item.currentStock - item.consumedQuantity;
 
@@ -328,7 +359,12 @@ export class InventoryEndpoints {
     }
   }
 
-  // Add missing methods from InventoryAlertController:
+  /**
+   * GET /api/inventory/stock-levels
+   *
+   * Returns detailed stock information for all ingredients,
+   * including alert and reorder indicators.
+   */
   async getStockLevels(req: Request, res: Response): Promise<void> {
     try {
       const { ingredientRepository } = await this.getDependencies();
@@ -336,7 +372,6 @@ export class InventoryEndpoints {
 
       if (!result.success) {
         res.status(404).json({ message: "Stock not found" });
-
         return;
       }
 
@@ -369,6 +404,14 @@ export class InventoryEndpoints {
     }
   }
 
+  /**
+   * GET /api/inventory/dashboard
+   *
+   * Provides aggregated inventory metrics for dashboard views:
+   * - stock health
+   * - inventory value
+   * - menu item usage
+   */
   async getDashboardData(req: Request, res: Response): Promise<void> {
     try {
       const stockResult = await this.ingredientRepository.findAll();
@@ -382,16 +425,22 @@ export class InventoryEndpoints {
       }
 
       const ingredients = stockResult.value;
+
+      // Categorize stock health
       const criticalItems = ingredients.filter((i) => i.isLowStock());
       const lowItems = ingredients.filter(
         (i) => i.needsReorder() && !i.isLowStock(),
       );
 
+      // Calculate total inventory value
       const totalValue = ingredients.reduce((sum, ing) => {
         return sum + ing.getStock() * ing.costPerUnit;
       }, 0);
 
-      // Get usedIn information from menu items
+      /**
+       * Build ingredient usage map from active menu items
+       * to support traceability and planning.
+       */
       const menuItemResult = await this.menuItemRepository.findAllActive();
       const usedInMap = new Map();
 
@@ -452,6 +501,12 @@ export class InventoryEndpoints {
     }
   }
 
+  /**
+   * POST /api/inventory/bulk-update
+   *
+   * Updates stock levels for multiple ingredients in a single request.
+   * Each update is processed independently to avoid partial failures.
+   */
   async bulkUpdate(req: Request, res: Response): Promise<void> {
     try {
       const { updates } = req.body;
@@ -526,6 +581,11 @@ export class InventoryEndpoints {
     }
   }
 
+  /**
+   * POST /api/inventory/update-stock
+   *
+   * Updates stock level for a single ingredient.
+   */
   async updateStock(req: Request, res: Response): Promise<void> {
     try {
       const { ingredientId, newStock } = req.body;
@@ -593,6 +653,12 @@ export class InventoryEndpoints {
     }
   }
 
+  /**
+   * POST /api/inventory/reorder
+   *
+   * Initiates a reorder request for an ingredient.
+   * Current implementation is a placeholder for purchase workflow.
+   */
   async reorderIngredient(req: Request, res: Response): Promise<void> {
     try {
       const { ingredientId, quantity } = req.body;
@@ -606,8 +672,7 @@ export class InventoryEndpoints {
         return;
       }
 
-      // In a real implementation, this would create a purchase order
-      // For now, just log and return success
+      // Placeholder for purchase order integration
       console.log(
         `Reorder requested for ingredient ${ingredientId}, quantity: ${quantity || "default"}`,
       );
@@ -632,6 +697,12 @@ export class InventoryEndpoints {
     }
   }
 
+  /**
+   * GET /api/inventory/low-stock-alerts
+   *
+   * Returns ingredients that are currently low on stock
+   * or require immediate reorder.
+   */
   async getLowStockAlerts(req: Request, res: Response): Promise<void> {
     try {
       const result = await this.ingredientRepository.findLowStockIngredients();

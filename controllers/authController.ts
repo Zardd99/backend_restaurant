@@ -4,35 +4,37 @@ import User, { IUser } from "../models/User";
 import { AuthRequest } from "../middleware/auth";
 
 /**
- * Generates a JWT token for a user ID
- * @param id - User ID to encode in the token
- * @returns Signed JWT token string
+ * Generate a signed JWT for authentication
+ * @param id - MongoDB user ID to embed in the token payload
+ * @returns JWT access token
  */
 const generateToken = (id: string): string => {
-  // check if JWT secret is available
+  // Ensure JWT secret is configured before signing tokens
   if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET environment variable is not defined");
   }
 
-  // Create the options object for token expiration
+  // Configure token expiration (defaults to 30 days)
   const options: jwt.SignOptions = {
     expiresIn:
       (process.env.JWT_EXPIRE as jwt.SignOptions["expiresIn"]) || "30d",
   };
 
+  // Sign and return the JWT
   return jwt.sign({ id }, process.env.JWT_SECRET, options);
 };
+
 /**
  * POST /api/auth/register
- * Register a new user
- * @param req - Express request object containing user details
- * @param res - Express response object
+ * Create a new user account
+ * @param req - Request containing registration payload
+ * @param res - HTTP response
  */
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, email, password, role } = req.body;
 
-    // Validate required fields
+    // Validate mandatory registration fields
     if (!name || !email || !password) {
       res.status(400).json({
         message: "Name, email, and password are required",
@@ -40,23 +42,22 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Check if user already exists
+    // Prevent duplicate account creation using the same email
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       res.status(400).json({ message: "User already exists with this email" });
       return;
     }
 
-    // Create user
+    // Persist new user to the database
     const user = await User.create({
       name,
       email,
       password,
-      role: role || "customer"
-      
+      role: role || "customer",
     });
 
-    // Generate token
+    // Issue authentication token after successful registration
     const token = generateToken(user._id.toString());
 
     res.status(201).json({
@@ -76,6 +77,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       errors: { [key: string]: { message: string } };
     }
 
+    // Handle schema validation errors explicitly
     if (
       error &&
       typeof error === "object" &&
@@ -84,10 +86,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     ) {
       const validationError = error as ValidationError;
       const errors = Object.values(validationError.errors).map(
-        (err) => err.message
+        (err) => err.message,
       );
       res.status(400).json({ message: "Validation error", errors });
     } else {
+      // Fallback for unexpected server-side errors
       res.status(500).json({
         message: "Server error creating user",
         error:
@@ -99,15 +102,15 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 /**
  * POST /api/auth/login
- * Login user with email and password
- * @param req - Express request object containing credentials
- * @param res - Express response object
+ * Authenticate user credentials and issue JWT
+ * @param req - Request containing login credentials
+ * @param res - HTTP response
  */
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    // Validate required fields
+    // Validate login payload
     if (!email || !password) {
       res.status(400).json({
         message: "Email and password are required",
@@ -115,14 +118,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Check if user exists
+    // Retrieve user and include password for verification
     const user = await User.findOne({ email }).select("+password");
     if (!user) {
       res.status(401).json({ message: "Invalid email or password" });
       return;
     }
 
-    // Check if account is active
+    // Block login attempts for deactivated accounts
     if (!user.isActive) {
       res.status(401).json({
         message: "Account is deactivated. Please contact administrator.",
@@ -130,14 +133,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Check password
+    // Compare provided password with stored hash
     const isPasswordMatch = await user.comparePassword(password);
     if (!isPasswordMatch) {
       res.status(401).json({ message: "Invalid email or password" });
       return;
     }
 
-    // Generate token
+    // Issue authentication token
     const token = generateToken(user._id.toString());
 
     res.json({
@@ -152,6 +155,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error: Error | unknown) {
+    // Handle unexpected authentication errors
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
     res.status(500).json({
@@ -163,9 +167,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
 /**
  * GET /api/auth/me
- * Get current authenticated user's profile
- * @param req - Authenticated Express request object
- * @param res - Express response object
+ * Retrieve the authenticated user's profile
+ * @param req - Request populated by authentication middleware
+ * @param res - HTTP response
  */
 export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -174,10 +178,11 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       user: req.user,
     });
   } catch (error: Error | unknown) {
+    // Handle unexpected profile retrieval errors
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
     res.status(500).json({
-      message: "Server error during login",
+      message: "Server error retrieving user profile",
       error: errorMessage,
     });
   }
@@ -185,23 +190,23 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
 
 /**
  * PUT /api/auth/update
- * Update authenticated user's profile
- * @param req - Authenticated Express request object with update data
- * @param res - Express response object
+ * Update authenticated user's profile details
+ * @param req - Request containing allowed profile updates
+ * @param res - HTTP response
  */
 export const updateProfile = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { name, phone } = req.body;
 
-    // Build update object with only provided fields
+    // Build a partial update object from provided fields only
     const updateData: { name?: string; phone?: string } = {};
     if (name !== undefined) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
 
-    // Check if there's anything to update
+    // Reject requests with no valid update fields
     if (Object.keys(updateData).length === 0) {
       res.status(400).json({
         message: "No valid fields provided for update",
@@ -209,6 +214,7 @@ export const updateProfile = async (
       return;
     }
 
+    // Apply updates and return the updated user document
     const user = await User.findByIdAndUpdate(req.user!._id, updateData, {
       new: true,
       runValidators: true,
@@ -224,6 +230,7 @@ export const updateProfile = async (
       errors: { [key: string]: { message: string } };
     }
 
+    // Handle schema validation failures
     if (
       error &&
       typeof error === "object" &&
@@ -232,12 +239,13 @@ export const updateProfile = async (
     ) {
       const validationError = error as ValidationError;
       const errors = Object.values(validationError.errors).map(
-        (err) => err.message
+        (err) => err.message,
       );
       res.status(400).json({ message: "Validation error", errors });
     } else {
+      // Handle unexpected update failures
       res.status(500).json({
-        message: "Server error creating user",
+        message: "Server error updating user profile",
         error:
           error instanceof Error ? error.message : "An unknown error occurred",
       });
@@ -247,18 +255,18 @@ export const updateProfile = async (
 
 /**
  * PUT /api/auth/change-password
- * Change authenticated user's password
- * @param req - Authenticated Express request object with password data
- * @param res - Express response object
+ * Update password for the authenticated user
+ * @param req - Request containing current and new password
+ * @param res - HTTP response
  */
 export const changePassword = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    // Validate required fields
+    // Validate password change payload
     if (!currentPassword || !newPassword) {
       res.status(400).json({
         message: "Current password and new password are required",
@@ -266,7 +274,7 @@ export const changePassword = async (
       return;
     }
 
-    // Check if new password is different
+    // Prevent reusing the same password
     if (currentPassword === newPassword) {
       res.status(400).json({
         message: "New password must be different from current password",
@@ -274,16 +282,17 @@ export const changePassword = async (
       return;
     }
 
+    // Load user with password field for verification
     const user = await User.findById(req.user!._id).select("+password");
 
-    // Check current password
+    // Verify current password correctness
     const isMatch = await user!.comparePassword(currentPassword);
     if (!isMatch) {
       res.status(400).json({ message: "Current password is incorrect" });
       return;
     }
 
-    // Update password
+    // Persist new password (hashing handled by model middleware)
     user!.password = newPassword;
     await user!.save();
 
@@ -297,6 +306,7 @@ export const changePassword = async (
       errors: { [key: string]: { message: string } };
     }
 
+    // Handle validation-related failures
     if (
       error &&
       typeof error === "object" &&
@@ -305,12 +315,13 @@ export const changePassword = async (
     ) {
       const validationError = error as ValidationError;
       const errors = Object.values(validationError.errors).map(
-        (err) => err.message
+        (err) => err.message,
       );
       res.status(400).json({ message: "Validation error", errors });
     } else {
+      // Handle unexpected password update errors
       res.status(500).json({
-        message: "Server error creating user",
+        message: "Server error changing password",
         error:
           error instanceof Error ? error.message : "An unknown error occurred",
       });

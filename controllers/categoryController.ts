@@ -7,34 +7,40 @@ interface FilterConditions {
 }
 
 /**
- * GET api/category
- * Retrieve all Categories with optional filtering by name and active status
+ * GET /api/category
+ * Fetch all categories with optional query-based filtering
  *
- * @param req - Express Request object with query parameters
- * @param res - Express Response object
+ * @param req - Express request containing optional query parameters
+ * @param res - Express response object
  *
- * Query Parameters:
- * - name: filter by category name (partial match)
- * - isActive: filter by category status (true/false)
+ * Supported Query Parameters:
+ * - name: Performs a case-insensitive partial match on category name
+ * - isActive: Filters categories by active status ("true" | "false")
  *
- * @returns JSON response with array of categories or error message
+ * @returns
+ * - success: Indicates request outcome
+ * - count: Number of categories returned
+ * - data: Array of category documents
  */
 export const getAllCategory = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { name, isActive } = req.query;
     const filter: FilterConditions = {};
 
+    // Apply case-insensitive name search if provided
     if (name) {
       filter.name = { $regex: name as string, $options: "i" } as any;
     }
 
+    // Apply active status filter if explicitly provided
     if (isActive !== undefined) {
       filter.isActive = isActive === "true";
     }
 
+    // Retrieve categories based on constructed filter
     const categories = await Category.find(filter);
 
     res.json({
@@ -43,6 +49,7 @@ export const getAllCategory = async (
       data: categories,
     });
   } catch (error) {
+    // Log error for debugging and monitoring purposes
     console.error("Error fetching categories:", error);
     res.status(500).json({
       success: false,

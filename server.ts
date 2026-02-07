@@ -9,18 +9,29 @@ import connectDB from "./config/db";
 import rateLimiter from "./middleware/rateLimter";
 import { setupDependencies, DependencyContainer } from "./config/dependencies";
 
+/**
+ * REST Management API Server
+ * * Main entry point for the backend service. Handles middleware initialization,
+ * database connectivity, Dependency Injection (DI) setup, and routing.
+ */
+
 dotenv.config();
 
 const app: Express = express();
 const server = http.createServer(app);
 
+// Initialize real-time communication layer
 initWebSocketServer(server);
 
 const port = process.env.PORT || 5000;
 
-// Connect to MongoDB
 connectDB();
 
+/**
+ * CORS Configuration
+ * Configured to support local development, staging (ngrok), and production environments.
+ * Note: Dynamic origin matching is required for mobile testing via local network IPs.
+ */
 const corsOptions: cors.CorsOptions = {
   origin: function (
     origin: string | undefined,
@@ -35,12 +46,10 @@ const corsOptions: cors.CorsOptions = {
       "http://0.0.0.0:3000",
       "http://10.0.2.2:3000",
       "http://10.0.2.2:5000",
-      "http://localhost:64102",
-      "http://localhost:64102/",
-      "http://localhost:61491/",
-      "http://localhost:53628",
-      "http://localhost:53628/",
-
+      "http://localhost:62496/",
+      "http://localhost:62496",
+      "http://localhost:58103/",
+      "http://localhost:58103",
       ...(process.env.API_URL ? [process.env.API_URL as string] : []),
       ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN as string] : []),
       ...(process.env.IP ? [process.env.IP as string] : []),
@@ -60,6 +69,7 @@ const corsOptions: cors.CorsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  // Comprehensive header list to accommodate Vercel, Ngrok, and Custom Auth flows
   allowedHeaders: [
     "Content-Type",
     "Authorization",
@@ -99,26 +109,26 @@ const corsOptions: cors.CorsOptions = {
   optionsSuccessStatus: 200,
 };
 
+// Global Middleware Configuration
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(rateLimiter());
 app.use(express.urlencoded({ extended: true }));
 
-// Setup dependencies
-console.log("🔄 Setting up dependencies...");
+/**
+ * Dependency Injection Initialization
+ * Bootstraps the DI container for service-layer resolution across the app.
+ */
+console.log("Setting up dependencies...");
 try {
   setupDependencies();
-  console.log("✅ Dependencies setup complete");
 } catch (error) {
-  console.error("❌ Failed to setup dependencies:", error);
+  console.error("Critical Failure: Dependency setup failed", error);
   process.exit(1);
 }
 
-// Get the inventory manager with proper typing
 const container = DependencyContainer.getInstance();
 
-// Option 1: Use a type assertion if you know what it returns
-// Define a minimal interface for InventoryManager
 interface InventoryManagerType {
   startAutomaticAlerts: () => void;
   stopAutomaticAlerts: () => void;
@@ -126,20 +136,22 @@ interface InventoryManagerType {
 
 let inventoryManager: InventoryManagerType | undefined;
 
+/**
+ * Background Service: Inventory Alerts
+ * Starts the polling mechanism for low stock notifications.
+ */
 try {
   inventoryManager = container.resolve(
     "InventoryManager",
   ) as InventoryManagerType;
-  console.log("✅ InventoryManager resolved");
-
-  // Start automatic alerts
   inventoryManager.startAutomaticAlerts();
-  console.log("✅ Automatic low stock alerts started");
 } catch (error) {
-  console.error("❌ Failed to resolve InventoryManager:", error);
+  console.warn(
+    "InventoryManager could not be initialized. Alerts will be disabled.",
+  );
 }
 
-// Define routes
+// Route Modules
 import orderRoute from "./api/orders/orders";
 import menuRoute from "./api/menu/menu";
 import reviews from "./api/reviews/reviews";
@@ -152,7 +164,7 @@ import userRoutes from "./api/users/users";
 import authRoutes from "./api/auth/auth";
 import inventoryRoutes from "./api/inventory/inventory-router";
 
-// Other API routes
+// API Endpoint Registration
 app.use("/api/orders", orderRoute);
 app.use("/api/menu", menuRoute);
 app.use("/api/reviews", reviews);
@@ -165,7 +177,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 
-// Root route
 app.get("/", (req, res) => {
   res.json({
     message: "Restaurant Management API",
@@ -174,7 +185,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// Health check endpoint
 app.get("/health", (req, res) => {
   res.json({
     status: "healthy",
@@ -185,7 +195,10 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Error handling middleware
+/**
+ * Centralized Error Handling
+ * Captures all unhandled errors. Stacks are hidden in production for security.
+ */
 app.use(
   (
     err: Error,
@@ -201,52 +214,38 @@ app.use(
   },
 );
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
 
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  console.log("SIGTERM received. Shutting down gracefully...");
+/**
+ * Graceful Shutdown Process
+ * Ensures database connections and background processes (Inventory Polling)
+ * are terminated cleanly before the process exits.
+ */
+const handleShutdown = (signal: string) => {
+  console.log(`${signal} received. Initiating graceful shutdown...`);
 
-  // Stop automatic alerts
   if (inventoryManager) {
     inventoryManager.stopAutomaticAlerts();
-    console.log("Automatic low stock alerts stopped");
   }
 
-  // Close MongoDB connection
   if (mongoose.connection.readyState === 1) {
-    mongoose.connection.close(false);
+    mongoose.connection.close(false).then(() => {
+      console.log("Database connection closed.");
+      process.exit(0);
+    });
   } else {
     process.exit(0);
   }
-});
+};
 
-process.on("SIGINT", () => {
-  console.log("SIGINT received. Shutting down gracefully...");
+process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+process.on("SIGINT", () => handleShutdown("SIGINT"));
 
-  // Stop automatic alerts
-  if (inventoryManager) {
-    inventoryManager.stopAutomaticAlerts();
-    console.log("Automatic low stock alerts stopped");
-  }
-
-  // Close MongoDB connection
-  if (mongoose.connection.readyState === 1) {
-    mongoose.connection.close(false);
-  } else {
-    process.exit(0);
-  }
-});
-
-// Start server
 server.listen(port, () => {
-  console.log(`🚀 Server listening on port ${port}`);
-  console.log(`📁 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(
-    `🔔 Inventory alerts: ${inventoryManager ? "Active" : "Disabled"}`,
+    `Server listening on port ${port} [${process.env.NODE_ENV || "development"}]`,
   );
 });
 

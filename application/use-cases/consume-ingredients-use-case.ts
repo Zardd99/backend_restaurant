@@ -16,6 +16,13 @@ export interface ConsumptionResponse {
   warnings: string[];
 }
 
+/**
+ * Use Case: ConsumeIngredients
+ * * Business Logic:
+ * Translates a Menu Item sale into specific ingredient stock reductions.
+ * Performs critical validation on availability, unit compatibility, and stock levels
+ * before committing any changes to the database.
+ */
 export class ConsumeIngredientsUseCase {
   constructor(
     private menuItemRepository: MenuItemRepository,
@@ -26,31 +33,29 @@ export class ConsumeIngredientsUseCase {
     request: ConsumptionRequest,
   ): Promise<Result<ConsumptionResponse>> {
     try {
-      // Validate request
+      // 1. Basic Request Validation
       if (request.quantity <= 0) {
         return err(new Error("Quantity must be positive"));
       }
 
-      // Get menu item
       const menuItemResult = await this.menuItemRepository.findById(
         request.menuItemId,
       );
 
-      if (!menuItemResult.success) {
-        return menuItemResult;
-      }
+      if (!menuItemResult.success) return menuItemResult;
 
       const menuItem = menuItemResult.value;
       if (!menuItem) {
         return err(new Error("Menu item not found"));
       }
 
-      // Check if menu item is available
+      // Ensure the item is currently on the menu (business availability)
       if (!menuItem.isActive) {
         return err(new Error("Menu item is not available"));
       }
 
-      // Get required ingredients
+      // 2. Ingredient Resolution
+      // Fetch all required ingredients in a single batch to minimize database round-trips
       const ingredientIds = menuItem
         .getRequiredIngredients()
         .map((ref) => ref.ingredientId);
@@ -58,14 +63,15 @@ export class ConsumeIngredientsUseCase {
       const ingredientsResult =
         await this.ingredientRepository.findByIds(ingredientIds);
 
-      if (!ingredientsResult.success) {
-        return ingredientsResult;
-      }
+      if (!ingredientsResult.success) return ingredientsResult;
 
       const ingredients = ingredientsResult.value;
       const ingredientMap = new Map(ingredients.map((ing) => [ing.id, ing]));
 
-      // Validate all ingredients exist and are active
+      /**
+       * 3. Pre-Consumption Validation
+       * We verify existence, status, and unit compatibility before attempting any state changes.
+       */
       const warnings: string[] = [];
       for (const ref of menuItem.getRequiredIngredients()) {
         const ingredient = ingredientMap.get(ref.ingredientId);
@@ -76,7 +82,7 @@ export class ConsumeIngredientsUseCase {
           return err(new Error(`Ingredient ${ingredient.name} is not active`));
         }
 
-        // Check unit compatibility
+        // Flag unit mismatches (e.g., recipe says 'grams' but inventory is in 'liters')
         if (ref.unit !== ingredient.unit) {
           warnings.push(
             `Unit mismatch for ${ingredient.name}: Menu item uses ${ref.unit}, ingredient uses ${ingredient.unit}`,
@@ -84,21 +90,23 @@ export class ConsumeIngredientsUseCase {
         }
       }
 
-      // Calculate total consumption
+      /**
+       * 4. Stock Calculation & Consistency Check
+       * We calculate the full impact first. If one ingredient is missing, the whole order fails.
+       */
       const consumptionMap = new Map<string, number>();
       for (const ref of menuItem.getRequiredIngredients()) {
         const totalQuantity = ref.quantity * request.quantity;
         consumptionMap.set(ref.ingredientId, totalQuantity);
       }
 
-      // Consume ingredients
       const consumptionResults: ConsumptionResult[] = [];
       const updatedIngredients: typeof ingredients = [];
 
       for (const [ingredientId, quantity] of consumptionMap) {
         const ingredient = ingredientMap.get(ingredientId)!;
 
-        // Check stock availability
+        // Verify sufficient stock exists before calling the domain 'consume' method
         if (quantity > ingredient.getStock()) {
           return err(
             new Error(
@@ -108,10 +116,7 @@ export class ConsumeIngredientsUseCase {
         }
 
         const consumeResult = ingredient.consume(quantity);
-
-        if (!consumeResult.success) {
-          return consumeResult;
-        }
+        if (!consumeResult.success) return consumeResult;
 
         updatedIngredients.push(consumeResult.value);
 
@@ -124,15 +129,17 @@ export class ConsumeIngredientsUseCase {
         });
       }
 
-      // Save updated ingredients
+      /**
+       * 5. Persistence Phase
+       * FIXME: These save operations should ideally be wrapped in a database transaction
+       * to prevent partial stock updates if one save fails.
+       */
       for (const ingredient of updatedIngredients) {
         const saveResult = await this.ingredientRepository.save(ingredient);
-        if (!saveResult.success) {
-          return saveResult;
-        }
+        if (!saveResult.success) return saveResult;
       }
 
-      // Calculate total cost
+      // 6. Final Financial Calculation (Optional: could be moved to a Costing Service)
       let totalCost = 0;
       for (const ref of menuItem.getRequiredIngredients()) {
         const ingredient = ingredientMap.get(ref.ingredientId)!;

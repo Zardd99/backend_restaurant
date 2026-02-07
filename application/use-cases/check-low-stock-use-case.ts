@@ -3,12 +3,23 @@ import { LowStockNotificationRepository } from "../../repositories/low-stock-not
 import { LowStockNotificationFactory } from "../../models/low-stock-notification";
 import { Result, ok, err } from "../../shared/result";
 
+/**
+ * Use Case: CheckLowStock
+ * * Logic:
+ * 1. Scans the inventory for items below their safety thresholds.
+ * 2. Generates system notifications for stock replenishment.
+ * 3. Prevents duplicate alerts by checking for existing unacknowledged notifications.
+ */
 export class CheckLowStockUseCase {
   constructor(
     private ingredientRepository: IngredientRepository,
     private notificationRepository: LowStockNotificationRepository,
   ) {}
 
+  /**
+   * Executes the stock audit and notification generation process.
+   * @returns A summary of identified low stock items and the count of new notifications created.
+   */
   async execute(): Promise<
     Result<{
       lowStockIngredients: Array<{
@@ -23,9 +34,10 @@ export class CheckLowStockUseCase {
     }>
   > {
     try {
-      // Get low stock ingredients
+      // Fetch ingredients that have breached reorder thresholds from the repository
       const lowStockResult =
         await this.ingredientRepository.findLowStockIngredients();
+
       if (!lowStockResult.success) {
         return lowStockResult;
       }
@@ -33,25 +45,29 @@ export class CheckLowStockUseCase {
       const lowStockIngredients = lowStockResult.value;
       let notificationsCreated = 0;
 
-      // Create notifications for each low stock ingredient
+      /**
+       * Notification Idempotency Logic:
+       * We iterate through each depleted item and verify if a notification already exists.
+       * This prevents "alert fatigue" and database bloat.
+       */
       for (const ingredient of lowStockIngredients) {
-        // Check if there's already an unacknowledged notification
+        // Check for active (unacknowledged) notifications for this specific ingredient
         const existingNotification =
           await this.notificationRepository.findByIngredientId(ingredient.id);
 
         if (!existingNotification.success) {
-          continue;
+          continue; // Logically skip if repository check fails to avoid crashing the whole audit
         }
 
+        // Only create a new notification if one doesn't already exist for this ingredient
         if (!existingNotification.value) {
-          // Create new notification
           const notificationResult = LowStockNotificationFactory.create(
             this.generateId(),
             ingredient.id,
             ingredient.name,
             ingredient.getStock(),
             ingredient.minStock,
-            err,
+            err, // Note: Passing 'err' here seems to be a factory requirement for result handling
           );
 
           if (notificationResult.success) {
@@ -66,6 +82,7 @@ export class CheckLowStockUseCase {
         }
       }
 
+      // Map domain entities to DTO (Data Transfer Object) for the caller
       return ok({
         lowStockIngredients: lowStockIngredients.map((ingredient) => ({
           id: ingredient.id,
@@ -86,6 +103,10 @@ export class CheckLowStockUseCase {
     }
   }
 
+  /**
+   * Generates a unique identifier for new notification entities.
+   * Implementation Note: Consider moving to a dedicated UUID provider for production scale.
+   */
   private generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
