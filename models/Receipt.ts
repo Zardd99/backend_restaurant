@@ -8,7 +8,7 @@ export interface IReceipt extends Document {
   subtotal: number;
   tax: number;
   discount?: number;
-  totalAmount: number;
+  totalAmount: number; 
   issuedAt: Date;
   customer: Types.ObjectId;
   items: {

@@ -27,16 +27,17 @@ router.get(
   authorize("admin", "manager", "chef", "waiter", "cashier"),
   getAllOrders,
 );
-router.get(
-  "/:id",
-  authorize("admin", "manager", "chef", "waiter", "cashier"),
-  getOrderById,
-);
 
 router.get(
   "/stats",
   authorize("admin", "manager", "chef", "waiter", "cashier"),
   getOrderStats,
+);
+
+router.get(
+  "/:id",
+  authorize("admin", "manager", "chef", "waiter", "cashier"),
+  getOrderById,
 );
 
 router.post(
@@ -53,14 +54,14 @@ router.patch(
   updateOrderStatus,
 );
 
-router.post('/:id/inventory', async (req, res) => {
+router.post("/:id/inventory", async (req, res) => {
   try {
     const { id } = req.params;
     const { deductionStatus, deductionData, warning, timestamp } = req.body;
 
     const order = await Order.findById(id);
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: "Order not found" });
     }
 
     order.inventoryDeduction = {
@@ -68,22 +69,24 @@ router.post('/:id/inventory', async (req, res) => {
       data: deductionData,
       warning,
       timestamp,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
     };
 
     await order.save();
-    
+
     // Emit WebSocket update
-    req.app.get('io').emit('order_updated', order);
+    req.app.get("io").emit("order_updated", order);
 
     res.json({
       success: true,
-      message: 'Order inventory info updated',
-      order
+      message: "Order inventory info updated",
+      order,
     });
   } catch (error) {
-    console.error('Error updating order inventory info:', error);
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    console.error("Error updating order inventory info:", error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
   }
 });
 

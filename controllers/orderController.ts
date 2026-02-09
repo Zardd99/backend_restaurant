@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import Order, { IOrder } from "../models/Order";
+import { StatsManager } from "../domain/managers/StatsManager";
+import { MongoStatsRepository } from "../infrastructure/repositories/MongoStatsRepository";
 
 interface FilterConditions {
   status?: string;
@@ -261,183 +263,35 @@ export const getOrderStats = async (
   res: Response,
 ): Promise<void> => {
   try {
-    console.log("Fetching order statistics...");
+    const statsManager = new StatsManager(Order);
+    const result = await statsManager.getOrderStats();
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Type-safe result handling
+    if (!result.ok) {
+      console.error("StatsManager error:", result.error);
+      // Return default values instead of error
+      res.json({
+        dailyEarnings: 0,
+        weeklyEarnings: 0,
+        yearlyEarnings: 0,
+        todayOrderCount: 0,
+        avgOrderValue: 0,
+        ordersByStatus: {},
+        bestSellingDishes: [],
+        message: "Statistics loaded with default values",
+      });
+      return;
+    }
 
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - 7);
-
-    const startOfYear = new Date(today.getFullYear(), 0, 1);
-
-    console.log("Date ranges calculated:", {
-      todayStart: today,
-      weekStart: startOfWeek,
-      yearStart: startOfYear,
-    });
-
-    // 1. Get today's earnings and order count
-    const todayStatsPromise = Order.aggregate([
-      {
-        $match: {
-          orderDate: { $gte: today },
-          status: { $ne: "cancelled" },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalEarnings: { $sum: "$totalAmount" },
-          orderCount: { $sum: 1 },
-        },
-      },
-    ]);
-
-    // 2. Get weekly earnings
-    const weeklyStatsPromise = Order.aggregate([
-      {
-        $match: {
-          orderDate: { $gte: startOfWeek },
-          status: { $ne: "cancelled" },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalEarnings: { $sum: "$totalAmount" },
-        },
-      },
-    ]);
-
-    // 3. Get yearly earnings
-    const yearlyStatsPromise = Order.aggregate([
-      {
-        $match: {
-          orderDate: { $gte: startOfYear },
-          status: { $ne: "cancelled" },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalEarnings: { $sum: "$totalAmount" },
-        },
-      },
-    ]);
-
-    // 4. Get today's orders by status
-    const todayStatusStatsPromise = Order.aggregate([
-      {
-        $match: {
-          orderDate: { $gte: today },
-        },
-      },
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    // 5. Get best selling dishes
-    const bestSellingPromise = Order.aggregate([
-      { $match: { status: { $ne: "cancelled" } } },
-      { $unwind: "$items" },
-      {
-        $group: {
-          _id: "$items.menuItem",
-          totalQuantity: { $sum: "$items.quantity" },
-          totalRevenue: {
-            $sum: {
-              $multiply: ["$items.quantity", "$items.price"],
-            },
-          },
-        },
-      },
-      { $sort: { totalQuantity: -1 } },
-      { $limit: 5 },
-      {
-        $lookup: {
-          from: "menuitems", // Your collection name
-          localField: "_id",
-          foreignField: "_id",
-          as: "menuItemInfo",
-        },
-      },
-      {
-        $project: {
-          name: { $arrayElemAt: ["$menuItemInfo.name", 0] },
-          quantity: "$totalQuantity",
-          revenue: "$totalRevenue",
-        },
-      },
-    ]);
-
-    // Run all promises in parallel
-    const [
-      todayStats,
-      weeklyStats,
-      yearlyStats,
-      todayStatusStats,
-      bestSellingDishes,
-    ] = await Promise.all([
-      todayStatsPromise,
-      weeklyStatsPromise,
-      yearlyStatsPromise,
-      todayStatusStatsPromise,
-      bestSellingPromise,
-    ]);
-
-    console.log("Aggregation results:", {
-      todayStats,
-      weeklyStats,
-      yearlyStats,
-      todayStatusStats,
-      bestSellingDishes,
-    });
-
-    // Calculate average order value for today
-    const todayOrderCount = todayStats[0]?.orderCount || 0;
-    const dailyEarnings = todayStats[0]?.totalEarnings || 0;
-    const avgOrderValue =
-      todayOrderCount > 0 ? dailyEarnings / todayOrderCount : 0;
-
-    // Convert status stats to object
-    const ordersByStatus: Record<string, number> = {};
-    todayStatusStats.forEach((stat: any) => {
-      ordersByStatus[stat._id] = stat.count;
-    });
-
-    // Transform best selling dishes
-    const transformedBestSellers = bestSellingDishes.map((dish: any) => ({
-      name: dish.name || "Unknown Dish",
-      quantity: dish.quantity || 0,
-      revenue: dish.revenue || 0,
-    }));
-
-    // Send response
-    const responseData = {
-      dailyEarnings,
-      weeklyEarnings: weeklyStats[0]?.totalEarnings || 0,
-      yearlyEarnings: yearlyStats[0]?.totalEarnings || 0,
-      todayOrderCount,
-      avgOrderValue,
-      ordersByStatus,
-      bestSellingDishes: transformedBestSellers,
-    };
-
-    console.log("Sending response:", responseData);
-    res.json(responseData);
+    // Success - return stats
+    res.json(result.value);
   } catch (error: any) {
-    console.error("Error in getOrderStats:", {
+    console.error("Error in getOrderStats controller:", {
       message: error.message,
       stack: error.stack,
-      name: error.name,
     });
 
-    // Return default values instead of error
+    // Fallback: return default values
     res.json({
       dailyEarnings: 0,
       weeklyEarnings: 0,
@@ -446,7 +300,7 @@ export const getOrderStats = async (
       avgOrderValue: 0,
       ordersByStatus: {},
       bestSellingDishes: [],
-      message: "Statistics loaded with default values",
+      message: "Statistics loaded with default values due to error",
     });
   }
 };
