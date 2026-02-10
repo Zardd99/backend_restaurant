@@ -166,6 +166,7 @@ import receiptRoutes from "./api/receipts/receipts";
 import userRoutes from "./api/users/users";
 import authRoutes from "./api/auth/auth";
 import inventoryRoutes from "./api/inventory/inventory-router";
+import promotionRoutes from "./api/promotions/promotions";
 
 // API Endpoint Registration
 app.use("/api/orders", orderRoute);
@@ -179,6 +180,7 @@ app.use("/api/receipts", receiptRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/promotions", promotionRoutes);
 
 app.get("/", (req, res) => {
   res.json({

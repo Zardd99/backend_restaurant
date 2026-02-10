@@ -33,11 +33,17 @@ export class StatsManager {
         return Err(errors.map((e) => e.error).join("; "));
       }
 
-      const dailyStats = dailyResult.value;
-      const weeklyStats = weeklyResult.value;
-      const yearlyStats = yearlyResult.value;
-      const statusStats = statusResult.value;
-      const bestSellingDishes = bestSellingResult.value;
+      // Helper to narrow Result type and extract value
+      const ensureOk = <T>(r: Result<T, string>): T => {
+        if (!r.ok) throw new Error(r.error);
+        return r.value;
+      };
+
+      const dailyStats = ensureOk(dailyResult);
+      const weeklyStats = ensureOk(weeklyResult);
+      const yearlyStats = ensureOk(yearlyResult);
+      const statusStats = ensureOk(statusResult);
+      const bestSellingDishes = ensureOk(bestSellingResult);
 
       // Convert status stats to object
       const ordersByStatus: Record<string, number> = {};

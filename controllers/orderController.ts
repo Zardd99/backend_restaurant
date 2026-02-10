@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
 import Order, { IOrder } from "../models/Order";
+import MenuItem, { IMenuItem } from "../models/MenuItem";
 import { StatsManager } from "../domain/managers/StatsManager";
 import { MongoStatsRepository } from "../infrastructure/repositories/MongoStatsRepository";
+import { PromotionService } from "../services/PromotionService";
 
 interface FilterConditions {
   status?: string;
@@ -116,6 +118,7 @@ export const getOrderById = async (
  *          
  * Response:
  * - Returns created review with populated data
+ * - Order items will include promotion pricing (finalPrice, discountAmount, appliedPromotion)
 
  */
 export const createOrder = async (
@@ -123,14 +126,69 @@ export const createOrder = async (
   res: Response,
 ): Promise<void> => {
   try {
-    console.log("Creating order with data:", req.body); // Add this for debugging
+    console.log("Creating order with data:", req.body);
 
-    const order: IOrder = new Order(req.body);
+    const promotionService = new PromotionService();
+    const orderData = { ...req.body };
+    let totalDiscountAmount = 0;
+    let totalAmount = 0;
+
+    // Process each order item to apply promotions
+    if (orderData.items && Array.isArray(orderData.items)) {
+      const enrichedItems = await Promise.all(
+        orderData.items.map(async (item: any) => {
+          // Fetch the menu item to get pricing and category info
+          const menuItem = await MenuItem.findById(item.menuItem).populate(
+            "category",
+          );
+
+          if (!menuItem) {
+            throw new Error(`Menu item not found: ${item.menuItem}`);
+          }
+
+          // Compute best promotion for this menu item
+          const appliedPromo =
+            await promotionService.computeBestPromotionForMenuItem(menuItem);
+
+          // Calculate final price and discount
+          const finalPrice = appliedPromo?.finalPrice ?? menuItem.price;
+          const discountAmount = appliedPromo?.discountAmount ?? 0;
+          const itemTotalDiscount = discountAmount * item.quantity;
+
+          totalDiscountAmount += itemTotalDiscount;
+          totalAmount += finalPrice * item.quantity;
+
+          return {
+            ...item,
+            originalPrice: menuItem.price,
+            finalPrice: finalPrice,
+            discountAmount: discountAmount,
+            appliedPromotion: appliedPromo?.promotion._id ?? null,
+            // Keep the old price field for backward compatibility
+            price: item.price ?? menuItem.price,
+          };
+        }),
+      );
+
+      orderData.items = enrichedItems;
+      orderData.totalDiscountAmount = totalDiscountAmount;
+
+      // Update totalAmount if it exists in the request
+      if (orderData.totalAmount !== undefined) {
+        orderData.totalAmount = totalAmount;
+      }
+    }
+
+    const order: IOrder = new Order(orderData);
     const savedOrder = await order.save();
 
     await savedOrder.populate([
       { path: "customer", select: "name email" },
       { path: "items.menuItem", select: "name price" },
+      {
+        path: "items.appliedPromotion",
+        select: "name discountType discountValue",
+      },
     ]);
 
     res.status(201).json(savedOrder);

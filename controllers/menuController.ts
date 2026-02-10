@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import MenuItem, { IMenuItem } from "../models/MenuItem";
 import Category from "../models/Category";
+import { PromotionService } from "../services/PromotionService";
 
 interface FilterConditions {
   category?: string;
@@ -9,6 +10,37 @@ interface FilterConditions {
   chefSpecial?: boolean;
   $text?: { $search: string };
 }
+
+// Helper function to enrich menu items with promotion data
+const enrichMenuItemsWithPromotions = async (
+  menuItems: IMenuItem[],
+): Promise<any[]> => {
+  const promotionService = new PromotionService();
+
+  const enrichedItems = await Promise.all(
+    menuItems.map(async (item) => {
+      const appliedPromo =
+        await promotionService.computeBestPromotionForMenuItem(item);
+
+      return {
+        ...item.toObject(),
+        effectivePrice: appliedPromo?.finalPrice ?? item.price,
+        originalPrice: item.price,
+        appliedPromotion: appliedPromo
+          ? {
+              id: appliedPromo.promotion._id,
+              name: appliedPromo.promotion.name,
+              discountType: appliedPromo.promotion.discountType,
+              discountValue: appliedPromo.promotion.discountValue,
+              discountAmount: appliedPromo.discountAmount,
+            }
+          : null,
+      };
+    }),
+  );
+
+  return enrichedItems;
+};
 
 /**
  * GET /api/menu
@@ -27,6 +59,7 @@ interface FilterConditions {
  *
  * @returns
  * - Array of menu items sorted alphabetically by name
+ * - Each item includes: effectivePrice (with promotions applied), appliedPromotion (promo details if applicable)
  */
 export const getAllMenu = async (
   req: Request,
@@ -52,7 +85,10 @@ export const getAllMenu = async (
       .populate("category", "name")
       .sort({ name: 1 });
 
-    res.json(menuItems);
+    // Enrich menu items with promotion pricing
+    const enrichedItems = await enrichMenuItemsWithPromotions(menuItems);
+
+    res.json(enrichedItems);
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
@@ -70,6 +106,7 @@ export const getAllMenu = async (
  *
  * @returns
  * - Menu item document with populated category information
+ * - Includes: effectivePrice (with promotions applied), appliedPromotion (promo details if applicable)
  * - 404 error if item does not exist
  */
 export const getMenuId = async (req: Request, res: Response): Promise<void> => {
@@ -84,7 +121,11 @@ export const getMenuId = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    res.json(menuItem);
+    // Enrich menu item with promotion pricing
+    const enrichedItems = await enrichMenuItemsWithPromotions([menuItem]);
+    const enrichedItem = enrichedItems[0];
+
+    res.json(enrichedItem);
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
