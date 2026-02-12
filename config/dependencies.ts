@@ -150,6 +150,6 @@ export function setupDependencies(): DependencyContainer {
 
   container.register("InventoryManager", inventoryManager);
 
-  console.log("✅ Application dependency graph initialized successfully");
+  console.log("Application dependency graph initialized successfully");
   return container;
 }

@@ -46,13 +46,8 @@ const corsOptions: cors.CorsOptions = {
       "http://0.0.0.0:3000",
       "http://10.0.2.2:3000",
       "http://10.0.2.2:5000",
-      "http://localhost:62496/",
-      "http://localhost:62496",
-      "http://localhost:55654/",
-      "http://localhost:55654",
-      "http://localhost:50406/",
-      "http://localhost:53220/",
-      "http://localhost:53220",
+      "http://localhost:62996/",
+      "http://localhost:62996",
       ...(process.env.API_URL ? [process.env.API_URL as string] : []),
       ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN as string] : []),
       ...(process.env.IP ? [process.env.IP as string] : []),
@@ -137,7 +132,12 @@ interface InventoryManagerType {
   stopAutomaticAlerts: () => void;
 }
 
+interface EmailServiceType {
+  close?(): Promise<void>;
+}
+
 let inventoryManager: InventoryManagerType | undefined;
+let emailService: EmailServiceType | undefined;
 
 /**
  * Background Service: Inventory Alerts
@@ -152,6 +152,15 @@ try {
   console.warn(
     "InventoryManager could not be initialized. Alerts will be disabled.",
   );
+}
+
+/**
+ * Email Service Reference for Graceful Shutdown
+ */
+try {
+  emailService = container.resolve("EmailService") as EmailServiceType;
+} catch (error) {
+  console.warn("EmailService could not be retrieved for shutdown.");
 }
 
 // Route Modules
@@ -228,25 +237,52 @@ app.use((req, res) => {
  * Ensures database connections and background processes (Inventory Polling)
  * are terminated cleanly before the process exits.
  */
-const handleShutdown = (signal: string) => {
+const handleShutdown = async (signal: string) => {
   console.log(`${signal} received. Initiating graceful shutdown...`);
 
+  // Stop inventory alerts
   if (inventoryManager) {
     inventoryManager.stopAutomaticAlerts();
   }
 
-  if (mongoose.connection.readyState === 1) {
-    mongoose.connection.close(false).then(() => {
-      console.log("Database connection closed.");
-      process.exit(0);
-    });
-  } else {
-    process.exit(0);
+  // Close email service connections
+  if (emailService && emailService.close) {
+    try {
+      await emailService.close();
+      console.log("Email service closed.");
+    } catch (error) {
+      console.error("Error closing email service:", error);
+    }
   }
+
+  // Close Socket.IO connections
+  try {
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        console.log("HTTP/WebSocket server closed.");
+        resolve();
+      });
+    });
+  } catch (error) {
+    console.error("Error closing server:", error);
+  }
+
+  // Close MongoDB connection
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await mongoose.connection.close(false);
+      console.log("Database connection closed.");
+    } catch (error) {
+      console.error("Error closing database:", error);
+    }
+  }
+
+  console.log("Shutdown complete.");
+  process.exit(0);
 };
 
-process.on("SIGTERM", () => handleShutdown("SIGTERM"));
-process.on("SIGINT", () => handleShutdown("SIGINT"));
+process.on("SIGTERM", () => handleShutdown("SIGTERM").catch(console.error));
+process.on("SIGINT", () => handleShutdown("SIGINT").catch(console.error));
 
 server.listen(port, () => {
   console.log(

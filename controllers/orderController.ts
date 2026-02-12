@@ -134,7 +134,11 @@ export const createOrder = async (
     let totalAmount = 0;
 
     // Process each order item to apply promotions
-    if (orderData.items && Array.isArray(orderData.items)) {
+    if (
+      orderData.items &&
+      Array.isArray(orderData.items) &&
+      orderData.items.length > 0
+    ) {
       const enrichedItems = await Promise.all(
         orderData.items.map(async (item: any) => {
           // Fetch the menu item to get pricing and category info
@@ -173,10 +177,18 @@ export const createOrder = async (
       orderData.items = enrichedItems;
       orderData.totalDiscountAmount = totalDiscountAmount;
 
-      // Update totalAmount if it exists in the request
-      if (orderData.totalAmount !== undefined) {
-        orderData.totalAmount = totalAmount;
-      }
+      // Always set computed total amount based on items and promotions
+      orderData.totalAmount = totalAmount;
+    }
+
+    // Require at least one item in the order
+    if (
+      !orderData.items ||
+      !Array.isArray(orderData.items) ||
+      orderData.items.length === 0
+    ) {
+      res.status(400).json({ message: "Order must contain at least one item" });
+      return;
     }
 
     const order: IOrder = new Order(orderData);

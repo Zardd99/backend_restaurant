@@ -32,6 +32,8 @@ export interface OrderItem {
  */
 export class InventoryManager {
   private alertCheckInterval?: NodeJS.Timeout;
+  private isProcessingAlerts = false;
+  private maxQueueSize = 1000; // Prevent unbounded growth
 
   // Queue to manage high-frequency alerts without overwhelming the email service
   private realTimeAlertQueue: Array<{
@@ -220,48 +222,74 @@ export class InventoryManager {
   }): Promise<void> {
     if (!this.alertConfig.enableRealTimeAlerts) return;
 
+    // Prevent queue from growing unbounded
+    if (this.realTimeAlertQueue.length >= this.maxQueueSize) {
+      console.warn(
+        `Alert queue reached max size (${this.maxQueueSize}). Dropping oldest alert to prevent memory leak.`,
+      );
+      this.realTimeAlertQueue.shift();
+    }
+
     this.realTimeAlertQueue.push(alertData);
 
-    // Start processing if the queue was previously empty
-    if (this.realTimeAlertQueue.length === 1) {
+    // Start processing if not already processing
+    if (!this.isProcessingAlerts) {
+      this.isProcessingAlerts = true;
       setTimeout(() => this.processRealTimeAlerts(), 1000);
     }
   }
 
   /**
-   * Recursive worker that processes one alert at a time from the queue.
+   * Batch worker that processes alerts from the queue.
+   * Uses iterative approach instead of recursion to prevent stack overflow.
    */
   private async processRealTimeAlerts(): Promise<void> {
-    if (this.realTimeAlertQueue.length === 0) return;
-
-    const alert = this.realTimeAlertQueue.shift();
-    if (!alert) return;
-
     try {
-      const emailContent = this.createRealTimeAlertContent([
-        {
-          ingredientName: alert.ingredientName,
-          currentStock: alert.currentStock,
-          minStock: alert.minStock,
-          unit: alert.unit,
-        },
-      ]);
+      // Process up to 100 alerts per batch to avoid blocking the event loop
+      const batchSize = 100;
+      let processed = 0;
 
-      for (const recipient of this.alertConfig.recipients) {
-        await this.emailService.send(recipient, {
-          ...emailContent,
-          subject: `URGENT: ${alert.ingredientName} is running low!`,
-        });
+      while (this.realTimeAlertQueue.length > 0 && processed < batchSize) {
+        const alert = this.realTimeAlertQueue.shift();
+        if (!alert) break;
+
+        try {
+          const emailContent = this.createRealTimeAlertContent([
+            {
+              ingredientName: alert.ingredientName,
+              currentStock: alert.currentStock,
+              minStock: alert.minStock,
+              unit: alert.unit,
+            },
+          ]);
+
+          for (const recipient of this.alertConfig.recipients) {
+            await this.emailService.send(recipient, {
+              ...emailContent,
+              subject: `URGENT: ${alert.ingredientName} is running low!`,
+            });
+          }
+        } catch (error) {
+          console.error(
+            "Real-time alert worker encountered an error for ingredient:",
+            alert.ingredientName,
+            error,
+          );
+        }
+
+        processed++;
+      }
+
+      // Schedule next batch if queue still has items
+      if (this.realTimeAlertQueue.length > 0) {
+        setTimeout(() => this.processRealTimeAlerts(), 500);
+      } else {
+        this.isProcessingAlerts = false;
       }
     } catch (error) {
-      console.error(
-        "Critical Failure: Real-time alert worker encountered an error:",
-        error,
-      );
+      console.error("Critical failure in processRealTimeAlerts:", error);
+      this.isProcessingAlerts = false;
     }
-
-    // Recurse to handle the next item in queue
-    this.processRealTimeAlerts();
   }
 
   /**
@@ -279,6 +307,11 @@ export class InventoryManager {
       this.alertConfig.checkIntervalMinutes * 60 * 1000,
     );
 
+    // Allow process to exit when no other work is pending
+    if (this.alertCheckInterval.unref) {
+      this.alertCheckInterval.unref();
+    }
+
     this.checkAndAlertLowStock();
   }
 
@@ -290,6 +323,10 @@ export class InventoryManager {
       clearInterval(this.alertCheckInterval);
       this.alertCheckInterval = undefined;
     }
+
+    // Clear the alert queue to free memory
+    this.realTimeAlertQueue = [];
+    this.isProcessingAlerts = false;
   }
 
   // --- Content Generators ---
@@ -314,14 +351,14 @@ export class InventoryManager {
     const criticalList = criticalItems
       .map(
         (i) =>
-          `🚨 ${i.name}: ${i.currentStock}${i.unit} (Min: ${i.minStock}${i.unit}) - CRITICAL`,
+          `${i.name}: ${i.currentStock}${i.unit} (Min: ${i.minStock}${i.unit}) - CRITICAL`,
       )
       .join("\n");
 
     const lowList = lowItems
       .map(
         (i) =>
-          `⚠️ ${i.name}: ${i.currentStock}${i.unit} (Reorder at: ${i.reorderPoint}${i.unit})`,
+          `${i.name}: ${i.currentStock}${i.unit} (Reorder at: ${i.reorderPoint}${i.unit})`,
       )
       .join("\n");
 

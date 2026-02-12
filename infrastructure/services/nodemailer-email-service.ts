@@ -20,6 +20,7 @@ export interface NodemailerConfig {
 export class NodemailerEmailService implements EmailService {
   private transporter: nodemailer.Transporter;
   private fromAddress: string;
+  private isClosed = false;
 
   constructor(config: NodemailerConfig) {
     this.transporter = nodemailer.createTransport({
@@ -27,7 +28,7 @@ export class NodemailerEmailService implements EmailService {
       port: config.port,
       secure: config.secure,
       auth: config.auth,
-    });
+    } as any);
     this.fromAddress = config.from;
   }
 
@@ -71,6 +72,21 @@ export class NodemailerEmailService implements EmailService {
           `Failed to send bulk emails: ${error instanceof Error ? error.message : "Unknown error"}`,
         ),
       );
+    }
+  }
+
+  /**
+   * Close the email service and clean up connections.
+   * Should be called during graceful shutdown.
+   */
+  async close(): Promise<void> {
+    if (!this.isClosed) {
+      try {
+        await this.transporter.close();
+        this.isClosed = true;
+      } catch (error) {
+        console.error("Error closing email service:", error);
+      }
     }
   }
 }

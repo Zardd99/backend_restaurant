@@ -12,14 +12,15 @@ import { authenticate, authorize } from "../../middleware/auth";
 import Order from "../../models/Order";
 
 const router = express.Router();
-
-router.use(authenticate);
-
+// Debug route (keep public for development to inspect payloads)
 router.post("/debug/order", (req, res) => {
   console.log("Received order data:", req.body);
   console.log("Headers:", req.headers);
   res.json({ received: true, data: req.body });
 });
+
+// Apply authentication to all subsequent routes
+router.use(authenticate);
 
 // Role-based access
 router.get(

@@ -7,7 +7,7 @@ export function initWebSocketServer(server: http.Server) {
     cors: {
       origin: function (
         origin: string | undefined,
-        callback: (err: Error | null, allow?: boolean) => void
+        callback: (err: Error | null, allow?: boolean) => void,
       ) {
         if (!origin) return callback(null, true);
 
@@ -99,22 +99,22 @@ export function initWebSocketServer(server: http.Server) {
         // Broadcast to all waiter clients
         io.to("waiter").emit("order_updated", data);
         console.log(`Order ${data.orderId} status updated to ${data.status}`);
-      }
+      },
     );
 
     // Set role event handler
     socket.on("set_role", (newRole: string) => {
       if (["chef", "waiter"].includes(newRole)) {
         // Leave previous rooms
-        if (socket.data.previousRooms) {
-          socket.data.previousRooms.forEach((room: string) => {
-            socket.leave(room);
-          });
+        const currentRole = socket.data.role;
+        if (currentRole && currentRole !== newRole) {
+          socket.leave(currentRole);
         }
 
         // Join new role room
         socket.join(newRole);
         socket.data.role = newRole;
+        // Don't keep history of rooms to prevent memory accumulation
         socket.data.previousRooms = [newRole];
 
         console.log(`Client ${socket.id} set role to ${newRole}`);
@@ -123,6 +123,15 @@ export function initWebSocketServer(server: http.Server) {
 
     socket.on("disconnect", () => {
       console.log("Client disconnected:", socket.id);
+      // Clean up socket data to prevent memory leaks
+      if (socket.data.previousRooms) {
+        socket.data.previousRooms.forEach((room: string) => {
+          socket.leave(room);
+        });
+      }
+      socket.data.user = null;
+      socket.data.role = null;
+      socket.data.previousRooms = null;
     });
 
     socket.on("error", (error) => {

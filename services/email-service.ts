@@ -17,4 +17,5 @@ export interface EmailService {
     recipients: EmailRecipient[],
     content: EmailContent,
   ): Promise<Result<void>>;
+  close?(): Promise<void>;
 }
