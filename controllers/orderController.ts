@@ -8,6 +8,7 @@ import { PromotionService } from "../services/PromotionService";
 interface FilterConditions {
   status?: string;
   customer?: string;
+  customerName?: string;
   orderType?: string;
   orderDate?: {
     $gte?: Date;
@@ -53,7 +54,7 @@ export const getAllOrders = async (
     const filter: FilterConditions = {};
 
     if (status) filter.status = status as string;
-    if (customer) filter.customer = customer as string;
+    if (customer) filter.customerName = customer as string;
     if (orderType) filter.orderType = orderType as string;
 
     // filter by date
@@ -71,7 +72,7 @@ export const getAllOrders = async (
     }
 
     const orders = await Order.find(filter)
-      .populate("customer", "name email")
+      // .populate("customer", "name email")
       .populate("items.menuItem", "name price")
       .sort({ orderDate: -1 });
 
@@ -95,7 +96,7 @@ export const getOrderById = async (
 ): Promise<void> => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate("customer", "name email phone")
+      // .populate("customer", "name email phone")
       .populate("items.menuItem", "name price description");
 
     if (!order) {
@@ -132,6 +133,12 @@ export const createOrder = async (
     const orderData = { ...req.body };
     let totalDiscountAmount = 0;
     let totalAmount = 0;
+
+    if (req.body.customer) {
+      orderData.customerName = req.body.customer;
+    }
+
+    delete orderData.customer;
 
     // Process each order item to apply promotions
     if (
@@ -195,7 +202,7 @@ export const createOrder = async (
     const savedOrder = await order.save();
 
     await savedOrder.populate([
-      { path: "customer", select: "name email" },
+      // { path: "customer", select: "name email" },
       { path: "items.menuItem", select: "name price" },
       {
         path: "items.appliedPromotion",
@@ -306,7 +313,7 @@ export const updateOrderStatus = async (
       { status },
       { new: true, runValidators: true },
     )
-      .populate("customer", "name email")
+      // .populate("customer", "name email")
       .populate("items.menuItem", "name price");
 
     if (!order) {

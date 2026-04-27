@@ -31,7 +31,8 @@ export interface IOrder extends Document {
     | "ready"
     | "served"
     | "cancelled";
-  customer: Types.ObjectId;
+  // customer: Types.ObjectId;
+  customerName?: string;
   tableNumber?: number;
   orderType: "dine-in" | "takeaway" | "delivery";
   orderDate: Date;
@@ -54,6 +55,8 @@ const orderItemSchema: Schema = new Schema({
   appliedPromotion: { type: Schema.Types.ObjectId, ref: "Promotion" }, // Applied promotion ID
 });
 
+
+// Customer (customerName: string) here is not a User it only a string which is the name of the customer, no ref to User model. 
 const orderSchema: Schema = new Schema(
   {
     items: [orderItemSchema],
@@ -71,7 +74,8 @@ const orderSchema: Schema = new Schema(
       ],
       default: "pending",
     },
-    customer: { type: Schema.Types.ObjectId, ref: "User" },
+    // customer: { type: Schema.Types.ObjectId, ref: "User" },
+    customerName: { type: String },
     tableNumber: { type: Number, min: 1 },
     orderType: {
       type: String,
