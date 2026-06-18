@@ -7,19 +7,11 @@ const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const mongoose_1 = __importDefault(require("mongoose"));
 const index_1 = require("./server/index");
-const orders_1 = __importDefault(require("./api/orders/orders"));
-const menu_1 = __importDefault(require("./api/menu/menu"));
-const reviews_1 = __importDefault(require("./api/reviews/reviews"));
-const rating_1 = __importDefault(require("./api/reviews/rating/rating"));
-const category_1 = __importDefault(require("./api/category/category"));
-const priceHistory_1 = __importDefault(require("./api/priceHistory/priceHistory"));
-const supplier_1 = __importDefault(require("./api/supplier/supplier"));
-const receipts_1 = __importDefault(require("./api/receipts/receipts"));
-const users_1 = __importDefault(require("./api/users/users"));
-const auth_1 = __importDefault(require("./api/auth/auth"));
 const db_1 = __importDefault(require("./config/db"));
 const rateLimter_1 = __importDefault(require("./middleware/rateLimter"));
+const dependencies_1 = require("./config/dependencies");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
@@ -35,6 +27,12 @@ const corsOptions = {
             "http://127.0.0.1:3000",
             "http://localhost:3001",
             "http://0.0.0.0:3000",
+            "http://10.0.2.2:3000",
+            "http://10.0.2.2:5000",
+            "http://localhost:53597/",
+            "http://localhost:53597",
+            "http://localhost:51319/",
+            "http://localhost:51319",
             ...(process.env.API_URL ? [process.env.API_URL] : []),
             ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : []),
             ...(process.env.IP ? [process.env.IP] : []),
@@ -95,6 +93,42 @@ app.use((0, cors_1.default)(corsOptions));
 app.use(express_1.default.json());
 app.use((0, rateLimter_1.default)());
 app.use(express_1.default.urlencoded({ extended: true }));
+console.log("Setting up dependencies...");
+try {
+    (0, dependencies_1.setupDependencies)();
+}
+catch (error) {
+    console.error("Critical Failure: Dependency setup failed", error);
+    process.exit(1);
+}
+const container = dependencies_1.DependencyContainer.getInstance();
+let inventoryManager;
+let emailService;
+try {
+    inventoryManager = container.resolve("InventoryManager");
+    inventoryManager.startAutomaticAlerts();
+}
+catch (error) {
+    console.warn("InventoryManager could not be initialized. Alerts will be disabled.");
+}
+try {
+    emailService = container.resolve("EmailService");
+}
+catch (error) {
+    console.warn("EmailService could not be retrieved for shutdown.");
+}
+const orders_1 = __importDefault(require("./api/orders/orders"));
+const menu_1 = __importDefault(require("./api/menu/menu"));
+const reviews_1 = __importDefault(require("./api/reviews/reviews"));
+const rating_1 = __importDefault(require("./api/reviews/rating/rating"));
+const category_1 = __importDefault(require("./api/category/category"));
+const priceHistory_1 = __importDefault(require("./api/priceHistory/priceHistory"));
+const supplier_1 = __importDefault(require("./api/supplier/supplier"));
+const receipts_1 = __importDefault(require("./api/receipts/receipts"));
+const users_1 = __importDefault(require("./api/users/users"));
+const auth_1 = __importDefault(require("./api/auth/auth"));
+const inventory_router_1 = __importDefault(require("./api/inventory/inventory-router"));
+const promotions_1 = __importDefault(require("./api/promotions/promotions"));
 app.use("/api/orders", orders_1.default);
 app.use("/api/menu", menu_1.default);
 app.use("/api/reviews", reviews_1.default);
@@ -105,7 +139,74 @@ app.use("/api/supplier", supplier_1.default);
 app.use("/api/receipts", receipts_1.default);
 app.use("/api/auth", auth_1.default);
 app.use("/api/users", users_1.default);
-server.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
+app.use("/api/inventory", inventory_router_1.default);
+app.use("/api/promotions", promotions_1.default);
+app.get("/", (req, res) => {
+    res.json({
+        message: "Restaurant Management API",
+        version: "1.0.0",
+        inventoryAlerts: inventoryManager ? "Active" : "Disabled",
+    });
 });
+app.get("/health", (req, res) => {
+    res.json({
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        database: mongoose_1.default.connection.readyState === 1 ? "connected" : "disconnected",
+        inventoryAlerts: inventoryManager ? "running" : "disabled",
+    });
+});
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({
+        error: "Internal server error",
+        message: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+});
+app.use((req, res) => {
+    res.status(404).json({ error: "Route not found" });
+});
+const handleShutdown = async (signal) => {
+    console.log(`${signal} received. Initiating graceful shutdown...`);
+    if (inventoryManager) {
+        inventoryManager.stopAutomaticAlerts();
+    }
+    if (emailService && emailService.close) {
+        try {
+            await emailService.close();
+            console.log("Email service closed.");
+        }
+        catch (error) {
+            console.error("Error closing email service:", error);
+        }
+    }
+    try {
+        await new Promise((resolve) => {
+            server.close(() => {
+                console.log("HTTP/WebSocket server closed.");
+                resolve();
+            });
+        });
+    }
+    catch (error) {
+        console.error("Error closing server:", error);
+    }
+    if (mongoose_1.default.connection.readyState === 1) {
+        try {
+            await mongoose_1.default.connection.close(false);
+            console.log("Database connection closed.");
+        }
+        catch (error) {
+            console.error("Error closing database:", error);
+        }
+    }
+    console.log("Shutdown complete.");
+    process.exit(0);
+};
+process.on("SIGTERM", () => handleShutdown("SIGTERM").catch(console.error));
+process.on("SIGINT", () => handleShutdown("SIGINT").catch(console.error));
+server.listen(port, () => {
+    console.log(`Server listening on port ${port} [${process.env.NODE_ENV || "development"}]`);
+});
+exports.default = app;
 //# sourceMappingURL=server.js.map

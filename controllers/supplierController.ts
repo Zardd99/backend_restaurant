@@ -36,7 +36,7 @@ export const getAllSuppliers = async (req: Request, res: Response) => {
 
     const suppliers = await Supplier.find(filter).populate(
       "suppliedIngredients",
-      "name unit"
+      "name unit",
     );
     res.json(suppliers);
   } catch (error) {
@@ -60,7 +60,7 @@ export const getSupplierById = async (req: Request, res: Response) => {
   try {
     const supplier = await Supplier.findById(req.params.id).populate(
       "suppliedIngredients",
-      "name description unit costPerUnit"
+      "name description unit costPerUnit",
     );
 
     if (!supplier) {
@@ -124,7 +124,7 @@ export const updateSupplier = async (req: Request, res: Response) => {
     const updatedSupplier = await Supplier.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updatedSupplier) {
@@ -244,7 +244,7 @@ export const getSupplierPerformance = async (req: Request, res: Response) => {
  */
 export const getSupplierLowStockAlerts = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   try {
     const lowStockItems = await LowStockNotification.find({
@@ -277,7 +277,7 @@ export const getSupplierOrders = async (req: Request, res: Response) => {
       filter.status = status as string;
     }
 
-    const orders = await PurchaseOrder.find(filter)
+    const orders = await PurchaseOrder.find(filter as any)
       .populate("items.ingredient", "name unit")
       .sort({ orderDate: -1 });
 

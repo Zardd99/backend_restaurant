@@ -66,7 +66,7 @@ const menuItemSchema: Schema = new Schema(
 );
 
 // Middleware to calculate cost price before saving
-menuItemSchema.pre("save", async function (next) {
+menuItemSchema.pre("save", async function () {
   try {
     const menuItem = this as unknown as IMenuItem;
 
@@ -95,9 +95,8 @@ menuItemSchema.pre("save", async function (next) {
         );
       }
     }
-    next();
   } catch (error) {
-    next(error as Error);
+    throw error;
   }
 });
 

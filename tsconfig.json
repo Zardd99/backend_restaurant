@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     "typeRoots": ["./node_modules/@types"],
     "types": ["node", "express", "jsonwebtoken"],
     "target": "ES2017",
@@ -10,9 +11,8 @@
     "outDir": "./dist",
     "esModuleInterop": true,
     "module": "commonjs",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     },

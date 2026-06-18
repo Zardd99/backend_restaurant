@@ -71,7 +71,7 @@ export const getAllOrders = async (
       if (maxAmount) filter.totalAmount.$lte = Number(maxAmount);
     }
 
-    const orders = await Order.find(filter)
+    const orders = await Order.find(filter as any)
       // .populate("customer", "name email")
       .populate("items.menuItem", "name price")
       .sort({ orderDate: -1 });

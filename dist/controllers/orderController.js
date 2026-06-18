@@ -5,6 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getOrderStats = exports.updateOrderStatus = exports.deleteOrder = exports.updateOrder = exports.createOrder = exports.getOrderById = exports.getAllOrders = void 0;
 const Order_1 = __importDefault(require("../models/Order"));
+const MenuItem_1 = __importDefault(require("../models/MenuItem"));
+const StatsManager_1 = require("../domain/managers/StatsManager");
+const PromotionService_1 = require("../services/PromotionService");
 const getAllOrders = async (req, res) => {
     try {
         const { status, customer, orderType, startDate, endDate, minAmount, maxAmount, } = req.query;
@@ -12,7 +15,7 @@ const getAllOrders = async (req, res) => {
         if (status)
             filter.status = status;
         if (customer)
-            filter.customer = customer;
+            filter.customerName = customer;
         if (orderType)
             filter.orderType = orderType;
         if (startDate || endDate) {
@@ -30,7 +33,6 @@ const getAllOrders = async (req, res) => {
                 filter.totalAmount.$lte = Number(maxAmount);
         }
         const orders = await Order_1.default.find(filter)
-            .populate("customer", "name email")
             .populate("items.menuItem", "name price")
             .sort({ orderDate: -1 });
         res.json(orders);
@@ -43,7 +45,6 @@ exports.getAllOrders = getAllOrders;
 const getOrderById = async (req, res) => {
     try {
         const order = await Order_1.default.findById(req.params.id)
-            .populate("customer", "name email phone")
             .populate("items.menuItem", "name price description");
         if (!order) {
             res.status(404).json({ message: "Order not found" });
@@ -59,11 +60,49 @@ exports.getOrderById = getOrderById;
 const createOrder = async (req, res) => {
     try {
         console.log("Creating order with data:", req.body);
-        const order = new Order_1.default(req.body);
+        const promotionService = new PromotionService_1.PromotionService();
+        const orderData = Object.assign({}, req.body);
+        let totalDiscountAmount = 0;
+        let totalAmount = 0;
+        if (req.body.customer) {
+            orderData.customerName = req.body.customer;
+        }
+        delete orderData.customer;
+        if (orderData.items &&
+            Array.isArray(orderData.items) &&
+            orderData.items.length > 0) {
+            const enrichedItems = await Promise.all(orderData.items.map(async (item) => {
+                var _a, _b, _c, _d;
+                const menuItem = await MenuItem_1.default.findById(item.menuItem).populate("category");
+                if (!menuItem) {
+                    throw new Error(`Menu item not found: ${item.menuItem}`);
+                }
+                const appliedPromo = await promotionService.computeBestPromotionForMenuItem(menuItem);
+                const finalPrice = (_a = appliedPromo === null || appliedPromo === void 0 ? void 0 : appliedPromo.finalPrice) !== null && _a !== void 0 ? _a : menuItem.price;
+                const discountAmount = (_b = appliedPromo === null || appliedPromo === void 0 ? void 0 : appliedPromo.discountAmount) !== null && _b !== void 0 ? _b : 0;
+                const itemTotalDiscount = discountAmount * item.quantity;
+                totalDiscountAmount += itemTotalDiscount;
+                totalAmount += finalPrice * item.quantity;
+                return Object.assign(Object.assign({}, item), { originalPrice: menuItem.price, finalPrice: finalPrice, discountAmount: discountAmount, appliedPromotion: (_c = appliedPromo === null || appliedPromo === void 0 ? void 0 : appliedPromo.promotion._id) !== null && _c !== void 0 ? _c : null, price: (_d = item.price) !== null && _d !== void 0 ? _d : menuItem.price });
+            }));
+            orderData.items = enrichedItems;
+            orderData.totalDiscountAmount = totalDiscountAmount;
+            orderData.totalAmount = totalAmount;
+        }
+        if (!orderData.items ||
+            !Array.isArray(orderData.items) ||
+            orderData.items.length === 0) {
+            res.status(400).json({ message: "Order must contain at least one item" });
+            return;
+        }
+        const order = new Order_1.default(orderData);
         const savedOrder = await order.save();
         await savedOrder.populate([
-            { path: "customer", select: "name email" },
             { path: "items.menuItem", select: "name price" },
+            {
+                path: "items.appliedPromotion",
+                select: "name discountType discountValue",
+            },
         ]);
         res.status(201).json(savedOrder);
     }
@@ -129,7 +168,6 @@ const updateOrderStatus = async (req, res) => {
             return;
         }
         const order = await Order_1.default.findByIdAndUpdate(req.params.id, { status }, { new: true, runValidators: true })
-            .populate("customer", "name email")
             .populate("items.menuItem", "name price");
         if (!order) {
             res.status(404).json({ message: "Order not found" });
@@ -147,80 +185,39 @@ const updateOrderStatus = async (req, res) => {
 };
 exports.updateOrderStatus = updateOrderStatus;
 const getOrderStats = async (req, res) => {
-    var _a, _b, _c;
     try {
-        console.log("Fetching order statistics...");
-        const today = new Date();
-        const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const startOfYear = new Date(today.getFullYear(), 0, 1);
-        console.log("Date ranges:", { startOfDay, weekAgo, startOfYear });
-        const dailyEarnings = await Order_1.default.aggregate([
-            {
-                $match: {
-                    orderDate: { $gte: startOfDay },
-                    status: { $ne: "cancelled" },
-                },
-            },
-            { $group: { _id: null, total: { $sum: "$totalAmount" } } },
-        ]);
-        console.log("Daily earnings result:", dailyEarnings);
-        const weeklyEarnings = await Order_1.default.aggregate([
-            {
-                $match: {
-                    orderDate: { $gte: weekAgo },
-                    status: { $ne: "cancelled" },
-                },
-            },
-            { $group: { _id: null, total: { $sum: "$totalAmount" } } },
-        ]);
-        console.log("Weekly earnings result:", weeklyEarnings);
-        const yearlyEarnings = await Order_1.default.aggregate([
-            {
-                $match: {
-                    orderDate: { $gte: startOfYear },
-                    status: { $ne: "cancelled" },
-                },
-            },
-            { $group: { _id: null, total: { $sum: "$totalAmount" } } },
-        ]);
-        console.log("Yearly earnings result:", yearlyEarnings);
-        const bestSellingDishes = await Order_1.default.aggregate([
-            { $match: { status: { $ne: "cancelled" } } },
-            { $unwind: "$items" },
-            {
-                $group: {
-                    _id: "$items.menuItem",
-                    quantity: { $sum: "$items.quantity" },
-                    revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
-                },
-            },
-            { $sort: { quantity: -1 } },
-            { $limit: 5 },
-        ]);
-        console.log("Best selling dishes result:", bestSellingDishes);
-        res.json({
-            dailyEarnings: ((_a = dailyEarnings[0]) === null || _a === void 0 ? void 0 : _a.total) || 0,
-            weeklyEarnings: ((_b = weeklyEarnings[0]) === null || _b === void 0 ? void 0 : _b.total) || 0,
-            yearlyEarnings: ((_c = yearlyEarnings[0]) === null || _c === void 0 ? void 0 : _c.total) || 0,
-            bestSellingDishes: bestSellingDishes.map((dish) => ({
-                name: `Dish ${dish._id}`,
-                quantity: dish.quantity,
-                revenue: dish.revenue,
-            })),
-        });
+        const statsManager = new StatsManager_1.StatsManager(Order_1.default);
+        const result = await statsManager.getOrderStats();
+        if (!result.ok) {
+            console.error("StatsManager error:", result.error);
+            res.json({
+                dailyEarnings: 0,
+                weeklyEarnings: 0,
+                yearlyEarnings: 0,
+                todayOrderCount: 0,
+                avgOrderValue: 0,
+                ordersByStatus: {},
+                bestSellingDishes: [],
+                message: "Statistics loaded with default values",
+            });
+            return;
+        }
+        res.json(result.value);
     }
     catch (error) {
-        console.error("Error fetching order statistics:", error);
-        res.status(500).json({
-            message: "Failed to fetch statistics",
-            error: error instanceof Error ? error.message : "Unknown error",
-            stack: process.env.NODE_ENV === "development"
-                ? error instanceof Error
-                    ? error.stack
-                    : undefined
-                : undefined,
+        console.error("Error in getOrderStats controller:", {
+            message: error.message,
+            stack: error.stack,
+        });
+        res.json({
+            dailyEarnings: 0,
+            weeklyEarnings: 0,
+            yearlyEarnings: 0,
+            todayOrderCount: 0,
+            avgOrderValue: 0,
+            ordersByStatus: {},
+            bestSellingDishes: [],
+            message: "Statistics loaded with default values due to error",
         });
     }
 };

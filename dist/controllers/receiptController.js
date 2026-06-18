@@ -47,7 +47,6 @@ const createReceipt = async (req, res) => {
             tax,
             discount,
             totalAmount,
-            customer: order.customer._id,
             items: receiptItems,
         });
         const savedReceipt = await receipt.save();

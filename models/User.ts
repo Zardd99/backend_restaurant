@@ -57,26 +57,27 @@ const userSchema: Schema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Hash password before saving
-userSchema.pre<IUser>("save", async function (next) {
+userSchema.pre("save", async function () {
   // Only hash the password if it has been modified (or is new)
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password")) {
+    return;
+  }
 
   try {
     const salt = await bcrypt.genSalt(12);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
+    this.password = await bcrypt.hash(String(this.password), salt);
   } catch (error: unknown) {
-    next(error instanceof Error ? error : Error("Error Hashing Password"));
+    throw error instanceof Error ? error : new Error("Error Hashing Password");
   }
 });
 
 // Compare password method
 userSchema.methods.comparePassword = async function (
-  candidatePassword: string
+  candidatePassword: string,
 ): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };

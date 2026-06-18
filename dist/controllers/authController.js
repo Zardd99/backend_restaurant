@@ -33,7 +33,7 @@ const register = async (req, res) => {
             name,
             email,
             password,
-            role: role || "customer"
+            role: role || "customer",
         });
         const token = generateToken(user._id.toString());
         res.status(201).json({
@@ -123,7 +123,7 @@ const getMe = async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
         res.status(500).json({
-            message: "Server error during login",
+            message: "Server error retrieving user profile",
             error: errorMessage,
         });
     }
@@ -163,7 +163,7 @@ const updateProfile = async (req, res) => {
         }
         else {
             res.status(500).json({
-                message: "Server error creating user",
+                message: "Server error updating user profile",
                 error: error instanceof Error ? error.message : "An unknown error occurred",
             });
         }
@@ -209,7 +209,7 @@ const changePassword = async (req, res) => {
         }
         else {
             res.status(500).json({
-                message: "Server error creating user",
+                message: "Server error changing password",
                 error: error instanceof Error ? error.message : "An unknown error occurred",
             });
         }

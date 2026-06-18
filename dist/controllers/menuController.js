@@ -6,6 +6,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteMenuItem = exports.updateMenu = exports.createMenu = exports.getMenuId = exports.getAllMenu = void 0;
 const MenuItem_1 = __importDefault(require("../models/MenuItem"));
 const Category_1 = __importDefault(require("../models/Category"));
+const PromotionService_1 = require("../services/PromotionService");
+const enrichMenuItemsWithPromotions = async (menuItems) => {
+    const promotionService = new PromotionService_1.PromotionService();
+    const enrichedItems = await Promise.all(menuItems.map(async (item) => {
+        var _a;
+        const appliedPromo = await promotionService.computeBestPromotionForMenuItem(item);
+        return Object.assign(Object.assign({}, item.toObject()), { effectivePrice: (_a = appliedPromo === null || appliedPromo === void 0 ? void 0 : appliedPromo.finalPrice) !== null && _a !== void 0 ? _a : item.price, originalPrice: item.price, appliedPromotion: appliedPromo
+                ? {
+                    id: appliedPromo.promotion._id,
+                    name: appliedPromo.promotion.name,
+                    discountType: appliedPromo.promotion.discountType,
+                    discountValue: appliedPromo.promotion.discountValue,
+                    discountAmount: appliedPromo.discountAmount,
+                }
+                : null });
+    }));
+    return enrichedItems;
+};
 const getAllMenu = async (req, res) => {
     try {
         const { category, dietary, search, available, chefSpecial } = req.query;
@@ -25,7 +43,8 @@ const getAllMenu = async (req, res) => {
         const menuItems = await MenuItem_1.default.find(filter)
             .populate("category", "name")
             .sort({ name: 1 });
-        res.json(menuItems);
+        const enrichedItems = await enrichMenuItemsWithPromotions(menuItems);
+        res.json(enrichedItems);
     }
     catch (error) {
         res.status(500).json({ message: "Server error", error });
@@ -39,7 +58,9 @@ const getMenuId = async (req, res) => {
             res.status(404).json({ message: "Menu item not found" });
             return;
         }
-        res.json(menuItem);
+        const enrichedItems = await enrichMenuItemsWithPromotions([menuItem]);
+        const enrichedItem = enrichedItems[0];
+        res.json(enrichedItem);
     }
     catch (error) {
         res.status(500).json({ message: "Server error", error });
@@ -95,10 +116,10 @@ const deleteMenuItem = async (req, res) => {
     try {
         const menuItem = await MenuItem_1.default.findByIdAndDelete(req.params.id);
         if (!menuItem) {
-            res.status(404).json({ message: "Order not found" });
+            res.status(404).json({ message: "Menu item not found" });
             return;
         }
-        res.json({ message: "Order deleted successfully" });
+        res.json({ message: "Menu item deleted successfully" });
     }
     catch (error) {
         res.status(500).json({ message: "Server error", error });

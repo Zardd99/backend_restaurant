@@ -48,6 +48,7 @@ const menuItemSchema = new mongoose_1.Schema({
                 required: true,
             },
             quantity: { type: Number, required: true, min: 0 },
+            unit: { type: String, required: true },
         },
     ],
     dietaryTags: [
@@ -68,10 +69,38 @@ const menuItemSchema = new mongoose_1.Schema({
     chefSpecial: { type: Boolean, default: false },
     averageRating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
+    costPrice: { type: Number },
+    profitMargin: { type: Number },
 }, {
     timestamps: true,
 });
+menuItemSchema.pre("save", async function () {
+    try {
+        const menuItem = this;
+        if (menuItem.ingredientReferences &&
+            menuItem.ingredientReferences.length > 0) {
+            const IngredientModel = mongoose_1.default.model("Ingredient");
+            let totalCost = 0;
+            for (const ref of menuItem.ingredientReferences) {
+                const ingredient = await IngredientModel.findById(ref.ingredient);
+                if (ingredient && "costPerUnit" in ingredient) {
+                    const cost = ingredient.costPerUnit * ref.quantity;
+                    totalCost += cost;
+                }
+            }
+            menuItem.costPrice = parseFloat(totalCost.toFixed(2));
+            if (menuItem.price > 0) {
+                menuItem.profitMargin = parseFloat((((menuItem.price - menuItem.costPrice) / menuItem.price) *
+                    100).toFixed(2));
+            }
+        }
+    }
+    catch (error) {
+        throw error;
+    }
+});
 menuItemSchema.index({ name: "text", description: "text" });
 menuItemSchema.index({ category: 1, availability: 1 });
+menuItemSchema.index({ "ingredientReferences.ingredient": 1 });
 exports.default = mongoose_1.default.model("MenuItem", menuItemSchema);
 //# sourceMappingURL=MenuItem.js.map

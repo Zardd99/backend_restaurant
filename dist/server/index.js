@@ -80,10 +80,9 @@ function initWebSocketServer(server) {
         });
         socket.on("set_role", (newRole) => {
             if (["chef", "waiter"].includes(newRole)) {
-                if (socket.data.previousRooms) {
-                    socket.data.previousRooms.forEach((room) => {
-                        socket.leave(room);
-                    });
+                const currentRole = socket.data.role;
+                if (currentRole && currentRole !== newRole) {
+                    socket.leave(currentRole);
                 }
                 socket.join(newRole);
                 socket.data.role = newRole;
@@ -93,6 +92,14 @@ function initWebSocketServer(server) {
         });
         socket.on("disconnect", () => {
             console.log("Client disconnected:", socket.id);
+            if (socket.data.previousRooms) {
+                socket.data.previousRooms.forEach((room) => {
+                    socket.leave(room);
+                });
+            }
+            socket.data.user = null;
+            socket.data.role = null;
+            socket.data.previousRooms = null;
         });
         socket.on("error", (error) => {
             console.error("Socket error:", error);

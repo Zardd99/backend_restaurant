@@ -39,10 +39,15 @@ const orderItemSchema = new mongoose_1.Schema({
     quantity: { type: Number, required: true, min: 1 },
     specialInstructions: { type: String, maxlength: 200 },
     price: { type: Number, required: true },
+    originalPrice: { type: Number },
+    discountAmount: { type: Number, default: 0 },
+    finalPrice: { type: Number },
+    appliedPromotion: { type: mongoose_1.Schema.Types.ObjectId, ref: "Promotion" },
 });
 const orderSchema = new mongoose_1.Schema({
     items: [orderItemSchema],
     totalAmount: { type: Number, required: true },
+    totalDiscountAmount: { type: Number, default: 0 },
     status: {
         type: String,
         enum: [
@@ -55,7 +60,7 @@ const orderSchema = new mongoose_1.Schema({
         ],
         default: "pending",
     },
-    customer: { type: mongoose_1.Schema.Types.ObjectId, ref: "User" },
+    customerName: { type: String },
     tableNumber: { type: Number, min: 1 },
     orderType: {
         type: String,
@@ -63,6 +68,17 @@ const orderSchema = new mongoose_1.Schema({
         required: true,
     },
     orderDate: { type: Date, default: Date.now },
+    inventoryDeduction: {
+        status: {
+            type: String,
+            enum: ["pending", "completed", "failed", "skipped"],
+            default: "pending",
+        },
+        data: mongoose_1.default.Schema.Types.Mixed,
+        warning: String,
+        timestamp: Date,
+        lastUpdated: Date,
+    },
 }, {
     timestamps: true,
 });

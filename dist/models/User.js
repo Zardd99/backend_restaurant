@@ -79,16 +79,16 @@ const userSchema = new mongoose_1.Schema({
 }, {
     timestamps: true,
 });
-userSchema.pre("save", async function (next) {
-    if (!this.isModified("password"))
-        return next();
+userSchema.pre("save", async function () {
+    if (!this.isModified("password")) {
+        return;
+    }
     try {
         const salt = await bcryptjs_1.default.genSalt(12);
-        this.password = await bcryptjs_1.default.hash(this.password, salt);
-        next();
+        this.password = await bcryptjs_1.default.hash(String(this.password), salt);
     }
     catch (error) {
-        next(error instanceof Error ? error : Error("Error Hashing Password"));
+        throw error instanceof Error ? error : new Error("Error Hashing Password");
     }
 });
 userSchema.methods.comparePassword = async function (candidatePassword) {

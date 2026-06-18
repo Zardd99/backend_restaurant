@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LowStockNotification = exports.StockAdjustment = exports.PurchaseOrder = exports.Ingredient = exports.Supplier = void 0;
+exports.toPlainObject = exports.LowStockNotification = exports.StockAdjustment = exports.PurchaseOrder = exports.Ingredient = exports.Supplier = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const supplierSchema = new mongoose_1.Schema({
     name: { type: String, required: true, unique: true },
@@ -51,23 +51,20 @@ const supplierSchema = new mongoose_1.Schema({
     paymentTerms: { type: String, default: "Net 30" },
     isActive: { type: Boolean, default: true },
     notes: { type: String },
-}, {
-    timestamps: true,
-});
+}, { timestamps: true });
 const ingredientSchema = new mongoose_1.Schema({
     name: { type: String, required: true, unique: true },
     description: { type: String, required: true },
     unit: { type: String, required: true },
     currentStock: { type: Number, default: 0 },
     minStock: { type: Number, required: true },
+    reorderPoint: { type: Number, required: true },
     costPerUnit: { type: Number, required: true },
     supplier: { type: mongoose_1.Schema.Types.ObjectId, ref: "Supplier", required: true },
     category: { type: String, required: true },
     shelfLife: { type: Number },
     isActive: { type: Boolean, default: true },
-}, {
-    timestamps: true,
-});
+}, { timestamps: true });
 const purchaseOrderSchema = new mongoose_1.Schema({
     orderNumber: { type: String, required: true },
     supplier: { type: mongoose_1.Schema.Types.ObjectId, ref: "Supplier", required: true },
@@ -142,4 +139,9 @@ exports.Ingredient = mongoose_1.default.model("Ingredient", ingredientSchema);
 exports.PurchaseOrder = mongoose_1.default.model("PurchaseOrder", purchaseOrderSchema);
 exports.StockAdjustment = mongoose_1.default.model("StockAdjustment", stockAdjustmentSchema);
 exports.LowStockNotification = mongoose_1.default.model("LowStockNotification", lowStockNotificationSchema);
+const toPlainObject = (doc) => {
+    var _a;
+    return ((_a = doc === null || doc === void 0 ? void 0 : doc.toObject) === null || _a === void 0 ? void 0 : _a.call(doc)) || doc;
+};
+exports.toPlainObject = toPlainObject;
 //# sourceMappingURL=Supplier.js.map
