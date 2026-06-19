@@ -15,7 +15,8 @@ const dependencies_1 = require("./config/dependencies");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
-(0, index_1.initWebSocketServer)(server);
+const io = (0, index_1.initWebSocketServer)(server);
+app.set("io", io);
 const port = process.env.PORT || 5000;
 (0, db_1.default)();
 const corsOptions = {
@@ -138,6 +139,7 @@ const inventory_router_1 = __importDefault(require("./api/inventory/inventory-ro
 const promotions_1 = __importDefault(require("./api/promotions/promotions"));
 const timeout_router_1 = __importDefault(require("./api/timeout/timeout-router"));
 const tables_router_1 = __importDefault(require("./api/tables/tables-router"));
+const notifications_1 = __importDefault(require("./api/notifications/notifications"));
 const OrderTimeoutService_1 = require("./services/OrderTimeoutService");
 app.use("/api/orders", orders_1.default);
 app.use("/api/menu", menu_1.default);
@@ -153,6 +155,7 @@ app.use("/api/inventory", inventory_router_1.default);
 app.use("/api/promotions", promotions_1.default);
 app.use(timeout_router_1.default);
 app.use(tables_router_1.default);
+app.use("/api/notifications", notifications_1.default);
 app.get("/", (req, res) => {
     res.json({
         message: "Restaurant Management API",

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Order, { IOrder } from "../models/Order";
 import MenuItem from "../models/MenuItem";
+import Notification from "../models/Notification";
 import { StatsManager } from "../domain/managers/StatsManager";
 import { MongoStatsRepository } from "../infrastructure/repositories/MongoStatsRepository";
 import { PromotionService } from "../services/PromotionService";
@@ -23,12 +24,20 @@ export interface OrderNotificationPayload {
   timestamp: string;
 }
 
-function emitOrderNotification(
+async function emitOrderNotification(
   io: SocketServer,
   payload: OrderNotificationPayload,
-): void {
-  // Broadcast to every connected client — the frontend filters by role
+): Promise<void> {
   io.emit("order:notification", payload);
+  Notification.create({
+    type: payload.type,
+    orderId: payload.orderId,
+    tableNumber: payload.tableNumber,
+    customerName: payload.customerName,
+    itemCount: payload.itemCount,
+    actor: payload.actor,
+    timestamp: new Date(payload.timestamp),
+  }).catch((err) => console.error("Failed to persist notification:", err));
 }
 
 interface FilterConditions {
