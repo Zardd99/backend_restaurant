@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import Notification from "../models/Notification";
+import Notification, { NotificationType } from "../models/Notification";
 import { AuthRequest } from "../middleware/auth";
 
 const DEFAULT_LIMIT = 20;
@@ -17,9 +17,11 @@ export const getNotifications = async (
     );
     const skip = (page - 1) * limit;
 
-    const validTypes = ["order_created", "order_preparing", "order_ready", "order_served"];
+    const validTypes: NotificationType[] = ["order_created", "order_preparing", "order_ready", "order_served"];
     const typeParam = req.query.type as string | undefined;
-    const filter = typeParam && validTypes.includes(typeParam) ? { type: typeParam } : {};
+    const filter = typeParam && (validTypes as string[]).includes(typeParam)
+      ? { type: typeParam as NotificationType }
+      : {};
 
     const [data, total] = await Promise.all([
       Notification.find(filter).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
