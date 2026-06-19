@@ -112,6 +112,13 @@ catch (error) {
     console.warn("InventoryManager could not be initialized. Alerts will be disabled.");
 }
 try {
+    OrderTimeoutService_1.orderTimeoutService.startTimeoutChecker();
+    console.log("Order timeout checker started successfully");
+}
+catch (error) {
+    console.warn("Order timeout checker could not be initialized:", error);
+}
+try {
     emailService = container.resolve("EmailService");
 }
 catch (error) {
@@ -129,6 +136,9 @@ const users_1 = __importDefault(require("./api/users/users"));
 const auth_1 = __importDefault(require("./api/auth/auth"));
 const inventory_router_1 = __importDefault(require("./api/inventory/inventory-router"));
 const promotions_1 = __importDefault(require("./api/promotions/promotions"));
+const timeout_router_1 = __importDefault(require("./api/timeout/timeout-router"));
+const tables_router_1 = __importDefault(require("./api/tables/tables-router"));
+const OrderTimeoutService_1 = require("./services/OrderTimeoutService");
 app.use("/api/orders", orders_1.default);
 app.use("/api/menu", menu_1.default);
 app.use("/api/reviews", reviews_1.default);
@@ -141,6 +151,8 @@ app.use("/api/auth", auth_1.default);
 app.use("/api/users", users_1.default);
 app.use("/api/inventory", inventory_router_1.default);
 app.use("/api/promotions", promotions_1.default);
+app.use(timeout_router_1.default);
+app.use(tables_router_1.default);
 app.get("/", (req, res) => {
     res.json({
         message: "Restaurant Management API",
@@ -170,6 +182,13 @@ const handleShutdown = async (signal) => {
     console.log(`${signal} received. Initiating graceful shutdown...`);
     if (inventoryManager) {
         inventoryManager.stopAutomaticAlerts();
+    }
+    try {
+        OrderTimeoutService_1.orderTimeoutService.stopTimeoutChecker();
+        console.log("Order timeout checker stopped.");
+    }
+    catch (error) {
+        console.error("Error stopping timeout checker:", error);
     }
     if (emailService && emailService.close) {
         try {

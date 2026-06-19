@@ -4,6 +4,7 @@ import MenuItem, { IMenuItem } from "../models/MenuItem";
 import { StatsManager } from "../domain/managers/StatsManager";
 import { MongoStatsRepository } from "../infrastructure/repositories/MongoStatsRepository";
 import { PromotionService } from "../services/PromotionService";
+import { tableOccupancyService } from "../services/TableOccupancyService";
 
 interface FilterConditions {
   status?: string;
@@ -196,6 +197,20 @@ export const createOrder = async (
     ) {
       res.status(400).json({ message: "Order must contain at least one item" });
       return;
+    }
+
+    // Reject dine-in orders for tables that already have an active order.
+    // This is the application-layer guard; the DB index is the final safety net.
+    if (orderData.orderType === "dine-in" && orderData.tableNumber != null) {
+      const occupied = await tableOccupancyService.isTableOccupied(
+        Number(orderData.tableNumber),
+      );
+      if (occupied) {
+        res.status(409).json({
+          message: `Table ${orderData.tableNumber} is currently occupied by another order`,
+        });
+        return;
+      }
     }
 
     const order: IOrder = new Order(orderData);

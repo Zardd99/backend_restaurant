@@ -157,6 +157,17 @@ try {
 }
 
 /**
+ * Background Service: Order Timeout Checker
+ * Starts the timeout checker for orders and prep steps.
+ */
+try {
+  orderTimeoutService.startTimeoutChecker();
+  console.log("Order timeout checker started successfully");
+} catch (error) {
+  console.warn("Order timeout checker could not be initialized:", error);
+}
+
+/**
  * Email Service Reference for Graceful Shutdown
  */
 try {
@@ -178,6 +189,9 @@ import userRoutes from "./api/users/users";
 import authRoutes from "./api/auth/auth";
 import inventoryRoutes from "./api/inventory/inventory-router";
 import promotionRoutes from "./api/promotions/promotions";
+import timeoutRoutes from "./api/timeout/timeout-router";
+import tablesRoutes from "./api/tables/tables-router";
+import { orderTimeoutService } from "./services/OrderTimeoutService";
 
 // API Endpoint Registration
 app.use("/api/orders", orderRoute);
@@ -192,6 +206,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/promotions", promotionRoutes);
+app.use(timeoutRoutes); // Timeout management routes
+app.use(tablesRoutes); // Table occupancy management routes
 
 app.get("/", (req, res) => {
   res.json({
@@ -245,6 +261,14 @@ const handleShutdown = async (signal: string) => {
   // Stop inventory alerts
   if (inventoryManager) {
     inventoryManager.stopAutomaticAlerts();
+  }
+
+  // Stop order timeout checker
+  try {
+    orderTimeoutService.stopTimeoutChecker();
+    console.log("Order timeout checker stopped.");
+  } catch (error) {
+    console.error("Error stopping timeout checker:", error);
   }
 
   // Close email service connections

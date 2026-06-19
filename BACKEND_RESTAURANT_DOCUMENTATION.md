@@ -1,7 +1,7 @@
 # Backend Restaurant Management System - Technical Documentation
 
-**Version:** 1.0.0  
-**Last Updated:** February 2026  
+**Version:** 1.0.1  
+**Last Updated:** June 2026  
 **Status:** Production Ready
 
 ---
@@ -217,11 +217,15 @@ OrderController.createOrder()
     ↓
 Validation & Sanitization
     ↓
+[dine-in only] TableOccupancyService.isTableOccupied()
+    ├─→ occupied → 409 Conflict (table already has active order)
+    └─→ available → continue
+    ↓
 ConsumeIngredientsUseCase.execute()
     ├─→ InventoryManager (Deduct ingredients)
     └─→ LowStockNotificationRepository (Create alerts)
     ↓
-Order.save() [MongoDB]
+Order.save() [MongoDB — partial unique index enforces one active order per table]
     ↓
 WebSocket Event: "order_created"
     ├─→ Kitchen Display System
@@ -540,14 +544,15 @@ Helper functions and common operations:
 
 1. Client sends POST request to `/api/orders`
 2. Controller validates request and extracts order items
-3. `ConsumeIngredientsUseCase` is executed:
+3. **[dine-in only]** `TableOccupancyService.isTableOccupied()` is called — returns `409 Conflict` if the table has any active order (`pending`, `confirmed`, `preparing`, or `ready`)
+4. `ConsumeIngredientsUseCase` is executed:
    - For each menu item, fetch related ingredients
    - Check current stock levels
    - Deduct quantities from inventory
    - Create low stock notifications if thresholds breached
-4. Order is saved with inventory deduction status
-5. WebSocket event broadcasts to kitchen and waiters
-6. Response sent with order ID and status
+5. Order is saved with inventory deduction status. The partial unique index on `tableNumber` (active statuses only) acts as the final race-condition guard at the database layer
+6. WebSocket event broadcasts to kitchen and waiters
+7. Response sent with order ID and status
 
 **Key Implementation:**
 
@@ -559,20 +564,31 @@ async createOrder(req: Request, res: Response) {
   const menuItems = await MenuItem.find({ _id: { $in: itemIds } });
   const totalAmount = calculateTotal(items, menuItems);
 
-  // 2. Execute use case to reserve inventory
+  // 2. Reject dine-in orders for occupied tables (application-layer guard)
+  if (orderType === "dine-in" && tableNumber != null) {
+    const occupied = await tableOccupancyService.isTableOccupied(Number(tableNumber));
+    if (occupied) {
+      return res.status(409).json({
+        message: `Table ${tableNumber} is currently occupied by another order`
+      });
+    }
+  }
+
+  // 3. Execute use case to reserve inventory
   const consumeResult = await consumeIngredientsUseCase.execute(items);
 
-  // 3. Save order with deduction status
+  // 4. Save order — DB index enforces uniqueness as final safety net
   const order = await Order.create({
     items,
     totalAmount,
     customer: req.user._id,
     status: "pending",
     orderType,
+    tableNumber,
     inventoryDeduction: consumeResult.deductionInfo
   });
 
-  // 4. Broadcast real-time update
+  // 5. Broadcast real-time update
   req.app.get("io").emit("order_created", order);
 
   res.status(201).json(order);
@@ -1442,7 +1458,7 @@ mongo
   totalAmount: Number,
   status: "pending" | "confirmed" | "preparing" | "ready" | "served" | "cancelled",
   customer: ObjectId (ref: User),
-  tableNumber: Number,
+  tableNumber: Number,           // indexed — see Table Occupancy Index below
   orderType: "dine-in" | "takeaway" | "delivery",
   orderDate: Date,
   inventoryDeduction: {
@@ -1455,6 +1471,34 @@ mongo
   createdAt: Date,
   updatedAt: Date
 }
+```
+
+#### Table Occupancy Index
+
+A **partial unique index** on `tableNumber` prevents double-booking at the database layer:
+
+```typescript
+orderSchema.index(
+  { tableNumber: 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: {
+      tableNumber: { $exists: true, $ne: null },
+      status: { $in: ["pending", "confirmed", "preparing", "ready"] },
+    },
+  },
+);
+```
+
+- **Only active orders** (`pending`, `confirmed`, `preparing`, `ready`) are included in the index via `partialFilterExpression`.
+- **Once an order is `served` or `cancelled`** it leaves the index and the table number is free again.
+- **The index key is `tableNumber` alone** (not compound with `status`). A compound key `(tableNumber, status)` would allow two active orders on the same table with different statuses — e.g. one `pending` and one `confirmed` — because they would produce different index entries.
+
+**Deploy note:** If upgrading from a version that had the compound index, drop it first:
+
+```sh
+db.orders.dropIndex("tableNumber_1_status_1")
 ```
 
 ### User Model
@@ -1778,5 +1822,86 @@ Solution: Wait 1 minute or reduce request frequency
 ```
 
 ---
+
+---
+
+## Table Occupancy Management
+
+### Overview
+
+The table occupancy system prevents double-booking by ensuring only one active dine-in order can exist per table at any time. It operates at two levels: an application-layer pre-check in the controller, and a database-layer partial unique index as the final safety net.
+
+**Files involved:**
+
+| File | Role |
+| ---- | ---- |
+| `services/TableOccupancyService.ts` | Business logic — queries active orders by table number |
+| `api/tables/tables-router.ts` | REST endpoints for table status, availability, and release |
+| `controllers/orderController.ts` | Pre-save occupancy check before creating a dine-in order |
+| `models/Order.ts` | Partial unique index on `tableNumber` (active statuses only) |
+
+---
+
+### TableOccupancyService
+
+**Location:** `services/TableOccupancyService.ts`
+
+A singleton service (`tableOccupancyService`) exported for use by the order controller and any future consumers.
+
+#### Methods
+
+| Method | Returns | Description |
+| ------ | ------- | ----------- |
+| `isTableOccupied(tableNumber)` | `Promise<boolean>` | Returns `true` if the table has any order with status `pending`, `confirmed`, `preparing`, or `ready` |
+| `getOccupiedTables()` | `Promise<number[]>` | List of all currently occupied table numbers |
+| `getAvailableTables(maxTableNumber?)` | `Promise<number[]>` | All table numbers from 1 to `maxTableNumber` that have no active order |
+| `getTableOrder(tableNumber)` | `Promise<Order or null>` | The active order document for a table, or `null` |
+| `getTableOccupancySummary(maxTableNumber?)` | `Promise<OccupancySummary>` | Counts, lists, and occupancy percentage for the full floor |
+| `getDetailedTableStatus(maxTableNumber?)` | `Promise<TableStatus[]>` | Per-table status objects including order details for occupied tables |
+| `releaseTable(tableNumber)` | `Promise<Order>` | Sets the active order for the table to `served` |
+
+#### Active order definition
+
+An order is "active" (and therefore blocks a table) while its status is any of:
+`pending` · `confirmed` · `preparing` · `ready`
+
+The table is freed when the order reaches `served` or `cancelled`.
+
+---
+
+### REST Endpoints
+
+All routes are mounted at `/api/tables` via `api/tables/tables-router.ts`.
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET` | `/api/tables/occupancy-summary` | Floor-level summary — counts and occupancy rate |
+| `GET` | `/api/tables/occupied` | Array of occupied table numbers |
+| `GET` | `/api/tables/available` | Array of available table numbers (`?maxTables=N`) |
+| `GET` | `/api/tables/status` | Full per-table status array (`?maxTables=N`) |
+| `GET` | `/api/tables/:tableNumber` | Single table status and active order |
+| `GET` | `/api/tables/:tableNumber/order` | Active order document for a table |
+| `POST` | `/api/tables/:tableNumber/release` | Release table by marking active order as `served` |
+
+---
+
+### Double-Booking Prevention Flow
+
+```
+POST /api/orders  (orderType: "dine-in", tableNumber: 5)
+    ↓
+tableOccupancyService.isTableOccupied(5)
+    │
+    ├── true  → 409 Conflict: "Table 5 is currently occupied by another order"
+    │
+    └── false → proceed to save
+                    ↓
+               Order.save()
+                    ↓
+               MongoDB checks partial unique index { tableNumber: 1 }
+                    │
+                    ├── duplicate → 11000 MongoServerError (race condition caught)
+                    └── unique   → 201 Created
+```
 
 **End of Backend Restaurant Documentation**

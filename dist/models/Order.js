@@ -59,9 +59,10 @@ const orderSchema = new mongoose_1.Schema({
             "cancelled",
         ],
         default: "pending",
+        index: true,
     },
     customerName: { type: String },
-    tableNumber: { type: Number, min: 1 },
+    tableNumber: { type: Number, min: 1, index: true },
     orderType: {
         type: String,
         enum: ["dine-in", "takeaway", "delivery"],
@@ -79,8 +80,26 @@ const orderSchema = new mongoose_1.Schema({
         timestamp: Date,
         lastUpdated: Date,
     },
+    totalPrepTimeoutMinutes: {
+        type: Number,
+        default: 30,
+        min: 1,
+    },
+    prepStartedAt: { type: Date, index: true },
+    prepTimeoutAt: { type: Date, index: true },
+    lastPrepUpdateAt: { type: Date },
+    autoCancel: { type: Boolean, default: true },
+    cancelledReason: { type: String },
 }, {
     timestamps: true,
+});
+orderSchema.index({ tableNumber: 1, status: 1 }, {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: {
+        tableNumber: { $exists: true, $ne: null },
+        status: { $in: ["pending", "confirmed", "preparing", "ready"] },
+    },
 });
 exports.default = mongoose_1.default.model("Order", orderSchema);
 //# sourceMappingURL=Order.js.map

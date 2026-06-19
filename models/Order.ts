@@ -37,6 +37,13 @@ export interface IOrder extends Document {
   orderType: "dine-in" | "takeaway" | "delivery";
   orderDate: Date;
   inventoryDeduction?: InventoryDeduction;
+  // Timeout fields
+  totalPrepTimeoutMinutes?: number; // Total timeout for prep (in minutes)
+  prepStartedAt?: Date; // When preparation started
+  prepTimeoutAt?: Date; // When preparation will timeout
+  lastPrepUpdateAt?: Date; // Last update from chef
+  autoCancel?: boolean; // Auto-cancel on timeout
+  cancelledReason?: string; // Reason for cancellation
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,8 +62,7 @@ const orderItemSchema: Schema = new Schema({
   appliedPromotion: { type: Schema.Types.ObjectId, ref: "Promotion" }, // Applied promotion ID
 });
 
-
-// Customer (customerName: string) here is not a User it only a string which is the name of the customer, no ref to User model. 
+// Customer (customerName: string) here is not a User it only a string which is the name of the customer, no ref to User model.
 const orderSchema: Schema = new Schema(
   {
     items: [orderItemSchema],
@@ -73,10 +79,11 @@ const orderSchema: Schema = new Schema(
         "cancelled",
       ],
       default: "pending",
+      index: true,
     },
     // customer: { type: Schema.Types.ObjectId, ref: "User" },
     customerName: { type: String },
-    tableNumber: { type: Number, min: 1 },
+    tableNumber: { type: Number, min: 1, index: true },
     orderType: {
       type: String,
       enum: ["dine-in", "takeaway", "delivery"],
@@ -94,9 +101,40 @@ const orderSchema: Schema = new Schema(
       timestamp: Date,
       lastUpdated: Date,
     },
+    // Timeout fields
+    totalPrepTimeoutMinutes: {
+      type: Number,
+      default: 30,
+      min: 1,
+    },
+    prepStartedAt: { type: Date, index: true },
+    prepTimeoutAt: { type: Date, index: true },
+    lastPrepUpdateAt: { type: Date },
+    autoCancel: { type: Boolean, default: true },
+    cancelledReason: { type: String },
   },
   {
     timestamps: true,
+  },
+);
+
+// Partial unique index: only one active order per table at a time.
+// Key is tableNumber alone (not compound with status) so that a table with a
+// "pending" order cannot also receive a "confirmed" order — two documents with
+// different statuses but the same tableNumber would otherwise produce distinct
+// compound keys and bypass uniqueness enforcement.
+// NOTE: The old compound index (tableNumber_1_status_1) must be dropped manually
+// from MongoDB before deploying, e.g.:
+//   db.orders.dropIndex("tableNumber_1_status_1")
+orderSchema.index(
+  { tableNumber: 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: {
+      tableNumber: { $exists: true, $ne: null },
+      status: { $in: ["pending", "confirmed", "preparing", "ready"] },
+    },
   },
 );
 
