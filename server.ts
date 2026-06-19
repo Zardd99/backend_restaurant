@@ -192,6 +192,7 @@ import inventoryRoutes from "./api/inventory/inventory-router";
 import promotionRoutes from "./api/promotions/promotions";
 import timeoutRoutes from "./api/timeout/timeout-router";
 import tablesRoutes from "./api/tables/tables-router";
+import notificationRoutes from "./api/notifications/notifications";
 import { orderTimeoutService } from "./services/OrderTimeoutService";
 
 // API Endpoint Registration
@@ -209,6 +210,7 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/promotions", promotionRoutes);
 app.use(timeoutRoutes); // Timeout management routes
 app.use(tablesRoutes); // Table occupancy management routes
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => {
   res.json({
