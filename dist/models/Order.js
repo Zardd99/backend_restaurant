@@ -93,7 +93,7 @@ const orderSchema = new mongoose_1.Schema({
 }, {
     timestamps: true,
 });
-orderSchema.index({ tableNumber: 1, status: 1 }, {
+orderSchema.index({ tableNumber: 1 }, {
     unique: true,
     sparse: true,
     partialFilterExpression: {
