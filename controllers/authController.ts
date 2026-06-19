@@ -328,3 +328,36 @@ export const changePassword = async (
     }
   }
 };
+
+export const deleteAccount = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      res.status(400).json({ message: "Password is required to delete your account" });
+      return;
+    }
+
+    const user = await User.findById(req.user!._id).select("+password");
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      res.status(400).json({ message: "Incorrect password" });
+      return;
+    }
+
+    await User.findByIdAndDelete(req.user!._id);
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error deleting account",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
