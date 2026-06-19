@@ -17,9 +17,13 @@ export const getNotifications = async (
     );
     const skip = (page - 1) * limit;
 
+    const validTypes = ["order_created", "order_preparing", "order_ready", "order_served"];
+    const typeParam = req.query.type as string | undefined;
+    const filter = typeParam && validTypes.includes(typeParam) ? { type: typeParam } : {};
+
     const [data, total] = await Promise.all([
-      Notification.find().sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
-      Notification.countDocuments(),
+      Notification.find(filter).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
+      Notification.countDocuments(filter),
     ]);
 
     res.json({
