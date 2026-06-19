@@ -1,10 +1,35 @@
 import { Request, Response } from "express";
 import Order, { IOrder } from "../models/Order";
-import MenuItem, { IMenuItem } from "../models/MenuItem";
+import MenuItem from "../models/MenuItem";
 import { StatsManager } from "../domain/managers/StatsManager";
 import { MongoStatsRepository } from "../infrastructure/repositories/MongoStatsRepository";
 import { PromotionService } from "../services/PromotionService";
 import { tableOccupancyService } from "../services/TableOccupancyService";
+import { AuthRequest } from "../middleware/auth";
+import { Server as SocketServer } from "socket.io";
+
+// ---------------------------------------------------------------------------
+// Notification helpers
+// ---------------------------------------------------------------------------
+
+export interface OrderNotificationPayload {
+  id: string;
+  type: "order_created" | "order_preparing" | "order_ready" | "order_served";
+  orderId: string;
+  tableNumber?: number;
+  customerName?: string;
+  itemCount: number;
+  actor: { id: string; name: string; role: string };
+  timestamp: string;
+}
+
+function emitOrderNotification(
+  io: SocketServer,
+  payload: OrderNotificationPayload,
+): void {
+  // Broadcast to every connected client — the frontend filters by role
+  io.emit("order:notification", payload);
+}
 
 interface FilterConditions {
   status?: string;
@@ -124,7 +149,7 @@ export const getOrderById = async (
 
  */
 export const createOrder = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
 ): Promise<void> => {
   try {
@@ -225,6 +250,28 @@ export const createOrder = async (
       },
     ]);
 
+    // Emit real-time notification to all connected clients
+    const io: SocketServer | undefined = req.app.get("io");
+    if (io) {
+      const actor = req.user;
+      emitOrderNotification(io, {
+        id: `${savedOrder._id}-created-${Date.now()}`,
+        type: "order_created",
+        orderId: savedOrder._id.toString(),
+        tableNumber: savedOrder.tableNumber,
+        customerName: savedOrder.customerName,
+        itemCount: savedOrder.items?.length ?? 0,
+        actor: {
+          id: actor?._id?.toString() ?? "",
+          name: actor?.name ?? "Unknown",
+          role: actor?.role ?? "unknown",
+        },
+        timestamp: new Date().toISOString(),
+      });
+      // Also broadcast to kitchen for backward compatibility
+      io.to("chef").emit("order_created", savedOrder);
+    }
+
     res.status(201).json(savedOrder);
   } catch (error: unknown) {
     console.error("Error creating order:", error);
@@ -301,7 +348,7 @@ export const deleteOrder = async (
 
 // updateOrderStatus API endpoint
 export const updateOrderStatus = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
 ): Promise<void> => {
   try {
@@ -334,6 +381,36 @@ export const updateOrderStatus = async (
     if (!order) {
       res.status(404).json({ message: "Order not found" });
       return;
+    }
+
+    // Emit real-time notification for status transitions that require staff action
+    const notifTypeMap: Record<string, OrderNotificationPayload["type"]> = {
+      preparing: "order_preparing",
+      ready: "order_ready",
+      served: "order_served",
+    };
+    const notifType = notifTypeMap[status];
+    const io: SocketServer | undefined = req.app.get("io");
+    if (io) {
+      if (notifType) {
+        const actor = req.user;
+        emitOrderNotification(io, {
+          id: `${order._id}-${status}-${Date.now()}`,
+          type: notifType,
+          orderId: order._id.toString(),
+          tableNumber: order.tableNumber,
+          customerName: order.customerName,
+          itemCount: order.items?.length ?? 0,
+          actor: {
+            id: actor?._id?.toString() ?? "",
+            name: actor?.name ?? "Unknown",
+            role: actor?.role ?? "unknown",
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      // Backward-compatible event for waiter interfaces already listening
+      io.to("waiter").emit("order_updated", { orderId: order._id, status });
     }
 
     res.json(order);

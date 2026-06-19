@@ -20,8 +20,9 @@ dotenv.config();
 const app: Express = express();
 const server = http.createServer(app);
 
-// Initialize real-time communication layer
-initWebSocketServer(server);
+// Initialize real-time communication layer and expose io on app for controllers
+const io = initWebSocketServer(server);
+app.set("io", io);
 
 const port = process.env.PORT || 5000;
 
