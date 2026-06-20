@@ -2,7 +2,7 @@ import {
   StatsRepository,
   StatsData,
 } from "../../domain/repositories/StatsRepository";
-import { Result, Ok, Err } from "../../../restaurant_web_app/app/core/Result";
+import { Result, Ok, Err } from "../../core/Result";
 import Order from "../../models/Order";
 
 export class MongoStatsRepository implements StatsRepository {

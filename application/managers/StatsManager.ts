@@ -1,4 +1,4 @@
-import { Result, Ok, Err } from "../../../restaurant_web_app/app/core/Result";
+import { Result, Ok, Err } from "../../core/Result";
 import { StatsRepository, StatsData } from "../../repositories/StatsRepository";
 
 export class StatsManager {
