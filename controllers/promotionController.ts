@@ -40,7 +40,7 @@ export const getPromotionById = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const promotion = await promotionService.getPromotionById(req.params.id);
+    const promotion = await promotionService.getPromotionById(req.params.id as string);
     if (!promotion) {
       res.status(404).json({ message: "Promotion not found" });
       return;
@@ -105,7 +105,7 @@ export const updatePromotion = async (
     }
 
     const promotion = await promotionService.updatePromotion(
-      req.params.id,
+      req.params.id as string,
       req.body,
     );
     if (!promotion) {
@@ -129,7 +129,7 @@ export const deletePromotion = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const promotion = await promotionService.deletePromotion(req.params.id);
+    const promotion = await promotionService.deletePromotion(req.params.id as string);
     if (!promotion) {
       res.status(404).json({ message: "Promotion not found" });
       return;

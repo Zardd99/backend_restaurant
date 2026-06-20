@@ -115,7 +115,7 @@ export const getReviewById = async (
   res: Response
 ): Promise<void> => {
   try {
-    if (!Types.ObjectId.isValid(req.params.id)) {
+    if (!Types.ObjectId.isValid(req.params.id as string)) {
       res.status(400).json({
         success: false,
         message: "Invalid review ID format",
@@ -382,7 +382,7 @@ export const updateReview = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { rating, comment } = req.body;
 
     if (!Types.ObjectId.isValid(id)) {
@@ -473,7 +473,7 @@ export const deleteReview = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
 
     // Validate ObjectId format
     if (!Types.ObjectId.isValid(id)) {

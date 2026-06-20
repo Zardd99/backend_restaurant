@@ -100,7 +100,8 @@ export const getPriceHistoryById = async (
   res: Response
 ): Promise<void> => {
   try {
-    if (!Types.ObjectId.isValid(req.params.id)) {
+    const id = req.params.id as string;
+    if (!Types.ObjectId.isValid(id)) {
       res.status(400).json({
         success: false,
         message: "Invalid Price History ID Format",
@@ -108,7 +109,7 @@ export const getPriceHistoryById = async (
       return;
     }
 
-    const priceHistory = await PriceHistory.findById(req.params.id)
+    const priceHistory = await PriceHistory.findById(id)
       .populate("menuItem", "name price category description")
       .populate("changedBy", "name email"); // Also populate changedBy
 

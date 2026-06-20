@@ -11,7 +11,7 @@ router.post(
   "/api/order/:orderId/init-prep",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { orderId } = req.params;
+      const { orderId } = req.params as Record<string, string>;
       const { timeoutMinutes } = req.body;
 
       const order = await orderTimeoutService.initializePrepTimeout(
@@ -45,7 +45,7 @@ router.post(
   "/api/order/:orderId/prep-step",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { orderId } = req.params;
+      const { orderId } = req.params as Record<string, string>;
       const { stepName, status, notes } = req.body;
 
       if (!stepName || !status) {
@@ -83,7 +83,7 @@ router.get(
   "/api/order/:orderId/prep-progress",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { orderId } = req.params;
+      const { orderId } = req.params as Record<string, string>;
 
       const prepProgress = await orderTimeoutService.getPrepProgress(orderId);
 
@@ -112,7 +112,7 @@ router.get(
   "/api/order/:orderId/timeout-status",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { orderId } = req.params;
+      const { orderId } = req.params as Record<string, string>;
 
       const status = await orderTimeoutService.getTimeoutStatus(orderId);
 
@@ -141,7 +141,7 @@ router.post(
   "/api/order/:orderId/extend-timeout",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { orderId } = req.params;
+      const { orderId } = req.params as Record<string, string>;
       const { additionalMinutes } = req.body;
 
       if (!additionalMinutes || additionalMinutes <= 0) {
@@ -184,7 +184,7 @@ router.post(
   "/api/order/:orderId/cancel",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { orderId } = req.params;
+      const { orderId } = req.params as Record<string, string>;
       const { reason } = req.body;
 
       const order = await orderTimeoutService.cancelOrder(

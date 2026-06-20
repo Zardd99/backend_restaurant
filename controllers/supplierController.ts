@@ -170,7 +170,7 @@ export const deleteSupplier = async (req: Request, res: Response) => {
 // Get supplier performance metrics
 export const getSupplierPerformance = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
 
     // Get average delivery time
     const deliveryStats = await PurchaseOrder.aggregate([
@@ -270,7 +270,7 @@ export const getSupplierOrders = async (req: Request, res: Response) => {
   try {
     const { status } = req.query;
     const filter: { supplier: string; status?: string } = {
-      supplier: req.params.id,
+      supplier: req.params.id as string,
     };
 
     if (status) {

@@ -111,7 +111,7 @@ router.get(
   "/api/tables/:tableNumber",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tableNumber } = req.params;
+      const { tableNumber } = req.params as Record<string, string>;
       const tableNum = parseInt(tableNumber);
 
       if (isNaN(tableNum)) {
@@ -147,7 +147,7 @@ router.post(
   "/api/tables/:tableNumber/release",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tableNumber } = req.params;
+      const { tableNumber } = req.params as Record<string, string>;
       const tableNum = parseInt(tableNumber);
 
       if (isNaN(tableNum)) {
@@ -180,7 +180,7 @@ router.get(
   "/api/tables/:tableNumber/order",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tableNumber } = req.params;
+      const { tableNumber } = req.params as Record<string, string>;
       const tableNum = parseInt(tableNumber);
 
       if (isNaN(tableNum)) {

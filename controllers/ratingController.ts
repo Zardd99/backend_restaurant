@@ -154,7 +154,7 @@ export const getMenuItemRatings = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
 
     if (!Types.ObjectId.isValid(id)) {
       res.status(400).json({
@@ -252,7 +252,7 @@ export const getUserRatingHistory = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
 
     if (!Types.ObjectId.isValid(id)) {
       res.status(400).json({
