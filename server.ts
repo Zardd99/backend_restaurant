@@ -194,6 +194,7 @@ import timeoutRoutes from "./api/timeout/timeout-router";
 import tablesRoutes from "./api/tables/tables-router";
 import notificationRoutes from "./api/notifications/notifications";
 import supportRoutes from "./api/support/support";
+import billingRoutes from "./api/billing/billing";
 import { orderTimeoutService } from "./services/OrderTimeoutService";
 
 // API Endpoint Registration
@@ -213,6 +214,7 @@ app.use(timeoutRoutes); // Timeout management routes
 app.use(tablesRoutes); // Table occupancy management routes
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/support", supportRoutes);
+app.use("/api/billing", billingRoutes);
 
 app.get("/", (req, res) => {
   res.json({
