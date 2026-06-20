@@ -44,6 +44,9 @@ export interface IOrder extends Document {
   lastPrepUpdateAt?: Date; // Last update from chef
   autoCancel?: boolean; // Auto-cancel on timeout
   cancelledReason?: string; // Reason for cancellation
+  paymentStatus: "unpaid" | "paid";
+  paymentMethod?: "cash" | "credit_card" | "debit_card" | "KHQR" | null;
+  paidAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -112,6 +115,18 @@ const orderSchema: Schema = new Schema(
     lastPrepUpdateAt: { type: Date },
     autoCancel: { type: Boolean, default: true },
     cancelledReason: { type: String },
+    paymentStatus: {
+      type: String,
+      enum: ["unpaid", "paid"],
+      default: "unpaid",
+      index: true,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["cash", "credit_card", "debit_card", "KHQR"],
+      default: null,
+    },
+    paidAt: { type: Date },
   },
   {
     timestamps: true,
