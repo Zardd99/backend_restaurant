@@ -28,7 +28,7 @@ exports.getServedOrders = getServedOrders;
 const processPayment = async (req, res) => {
     var _a;
     try {
-        const { id } = req.params;
+        const id = req.params.id;
         const { paymentMethod } = req.body;
         if (!paymentMethod || !PAYMENT_METHODS.includes(paymentMethod)) {
             res.status(400).json({

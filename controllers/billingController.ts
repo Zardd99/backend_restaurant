@@ -34,7 +34,7 @@ export const processPayment = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { paymentMethod } = req.body as { paymentMethod: PaymentMethod };
 
     if (!paymentMethod || !PAYMENT_METHODS.includes(paymentMethod)) {
