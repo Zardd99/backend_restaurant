@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MongoStatsRepository = void 0;
-const Result_1 = require("../../../restaurant_web_app/app/core/Result");
+const Result_1 = require("../../core/Result");
 const Order_1 = __importDefault(require("../../models/Order"));
 class MongoStatsRepository {
     async getDailyStats() {

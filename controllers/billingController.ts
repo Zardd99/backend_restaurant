@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import Order from "../models/Order";
+import Receipt from "../models/Receipt";
 import { AuthRequest } from "../middleware/auth";
 
 const PAYMENT_METHODS = ["cash", "credit_card", "debit_card", "KHQR"] as const;
@@ -65,6 +66,34 @@ export const processPayment = async (
     order.paymentMethod = paymentMethod;
     order.paidAt = new Date();
     await order.save();
+
+    const existingReceipt = await Receipt.findOne({ order: id });
+    if (!existingReceipt) {
+      const populatedOrder = await Order.findById(id).populate("items.menuItem", "name");
+      if (populatedOrder) {
+        const discount = populatedOrder.totalDiscountAmount ?? 0;
+        const subtotal = populatedOrder.totalAmount + discount;
+        const receiptItems = populatedOrder.items.map((item: any) => ({
+          menuItem: item.menuItem?._id ?? item.menuItem,
+          name: item.menuItem?.name ?? "Item",
+          quantity: item.quantity,
+          price: item.finalPrice ?? item.price,
+        }));
+        const ts = Date.now().toString();
+        const rand = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+        await Receipt.create({
+          order: id,
+          receiptNumber: `RCP-${ts}-${rand}`,
+          paymentMethod,
+          paymentStatus: "completed",
+          subtotal,
+          tax: 0,
+          discount,
+          totalAmount: populatedOrder.totalAmount,
+          items: receiptItems,
+        });
+      }
+    }
 
     req.app.get("io").emit("billing:payment_updated", {
       orderId: id,

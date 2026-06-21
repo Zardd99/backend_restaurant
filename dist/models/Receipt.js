@@ -52,7 +52,7 @@ const receiptSchema = new mongoose_1.Schema({
     discount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
     issuedAt: { type: Date, default: Date.now },
-    customer: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
+    customer: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: false },
     items: [
         {
             menuItem: { type: mongoose_1.Schema.Types.ObjectId, ref: "MenuItem" },

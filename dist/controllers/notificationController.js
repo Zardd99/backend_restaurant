@@ -12,9 +12,14 @@ const getNotifications = async (req, res) => {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(req.query.limit) || DEFAULT_LIMIT));
         const skip = (page - 1) * limit;
+        const validTypes = ["order_created", "order_preparing", "order_ready", "order_served"];
+        const typeParam = req.query.type;
+        const filter = typeParam && validTypes.includes(typeParam)
+            ? { type: typeParam }
+            : {};
         const [data, total] = await Promise.all([
-            Notification_1.default.find().sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
-            Notification_1.default.countDocuments(),
+            Notification_1.default.find(filter).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
+            Notification_1.default.countDocuments(filter),
         ]);
         res.json({
             data,

@@ -38,7 +38,7 @@ const receiptSchema: Schema = new Schema(
     discount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
     issuedAt: { type: Date, default: Date.now },
-    customer: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    customer: { type: Schema.Types.ObjectId, ref: "User", required: false },
     items: [
       {
         menuItem: { type: Schema.Types.ObjectId, ref: "MenuItem" },

@@ -140,6 +140,8 @@ const promotions_1 = __importDefault(require("./api/promotions/promotions"));
 const timeout_router_1 = __importDefault(require("./api/timeout/timeout-router"));
 const tables_router_1 = __importDefault(require("./api/tables/tables-router"));
 const notifications_1 = __importDefault(require("./api/notifications/notifications"));
+const support_1 = __importDefault(require("./api/support/support"));
+const billing_1 = __importDefault(require("./api/billing/billing"));
 const OrderTimeoutService_1 = require("./services/OrderTimeoutService");
 app.use("/api/orders", orders_1.default);
 app.use("/api/menu", menu_1.default);
@@ -156,6 +158,8 @@ app.use("/api/promotions", promotions_1.default);
 app.use(timeout_router_1.default);
 app.use(tables_router_1.default);
 app.use("/api/notifications", notifications_1.default);
+app.use("/api/support", support_1.default);
+app.use("/api/billing", billing_1.default);
 app.get("/", (req, res) => {
     res.json({
         message: "Restaurant Management API",

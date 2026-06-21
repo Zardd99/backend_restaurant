@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatsManager = void 0;
-const Result_1 = require("../../../restaurant_web_app/app/core/Result");
+const Result_1 = require("../../core/Result");
 class StatsManager {
     constructor(statsRepo) {
         this.statsRepo = statsRepo;

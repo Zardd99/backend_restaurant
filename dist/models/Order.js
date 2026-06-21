@@ -90,6 +90,18 @@ const orderSchema = new mongoose_1.Schema({
     lastPrepUpdateAt: { type: Date },
     autoCancel: { type: Boolean, default: true },
     cancelledReason: { type: String },
+    paymentStatus: {
+        type: String,
+        enum: ["unpaid", "paid"],
+        default: "unpaid",
+        index: true,
+    },
+    paymentMethod: {
+        type: String,
+        enum: ["cash", "credit_card", "debit_card", "KHQR"],
+        default: null,
+    },
+    paidAt: { type: Date },
 }, {
     timestamps: true,
 });

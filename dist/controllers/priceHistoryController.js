@@ -61,14 +61,15 @@ const getAllPriceHistories = async (req, res) => {
 exports.getAllPriceHistories = getAllPriceHistories;
 const getPriceHistoryById = async (req, res) => {
     try {
-        if (!mongoose_1.Types.ObjectId.isValid(req.params.id)) {
+        const id = req.params.id;
+        if (!mongoose_1.Types.ObjectId.isValid(id)) {
             res.status(400).json({
                 success: false,
                 message: "Invalid Price History ID Format",
             });
             return;
         }
-        const priceHistory = await PriceHistory_1.default.findById(req.params.id)
+        const priceHistory = await PriceHistory_1.default.findById(id)
             .populate("menuItem", "name price category description")
             .populate("changedBy", "name email");
         if (!priceHistory) {
