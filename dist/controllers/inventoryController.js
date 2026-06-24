@@ -563,7 +563,7 @@ class InventoryEndpoints {
         var _a, _b, _c, _d, _e;
         try {
             await this.getDependencies();
-            const { id } = req.params;
+            const id = req.params.id;
             const existing = await this.ingredientRepository.findById(id);
             if (!existing.success || !existing.value) {
                 res.status(404).json({ ok: false, error: "Ingredient not found" });
@@ -595,7 +595,7 @@ class InventoryEndpoints {
     async deleteIngredient(req, res) {
         try {
             await this.getDependencies();
-            const { id } = req.params;
+            const id = req.params.id;
             const existing = await this.ingredientRepository.findById(id);
             if (!existing.success || !existing.value) {
                 res.status(404).json({ ok: false, error: "Ingredient not found" });
@@ -622,7 +622,7 @@ class InventoryEndpoints {
     async adjustStock(req, res) {
         try {
             await this.getDependencies();
-            const { id } = req.params;
+            const id = req.params.id;
             const { delta, reason } = req.body;
             const deltaNum = Number(delta);
             if (!Number.isFinite(deltaNum) || deltaNum === 0) {
