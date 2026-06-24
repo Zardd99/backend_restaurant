@@ -73,7 +73,7 @@ export const updateUser = async (
 
     const demotesLastAdmin =
       (role !== undefined && role !== "admin") || isActive === false;
-    if (demotesLastAdmin && (await isLastActiveAdmin(req.params.id))) {
+    if (demotesLastAdmin && (await isLastActiveAdmin(req.params.id as string))) {
       res
         .status(409)
         .json({ message: "Cannot demote or deactivate the last active admin." });
@@ -117,7 +117,7 @@ export const updateUserRole = async (
       return;
     }
 
-    if (role !== "admin" && (await isLastActiveAdmin(req.params.id))) {
+    if (role !== "admin" && (await isLastActiveAdmin(req.params.id as string))) {
       res
         .status(409)
         .json({ message: "Cannot demote the last active admin." });
@@ -151,7 +151,7 @@ export const deleteUser = async (
   res: Response
 ): Promise<void> => {
   try {
-    if (await isLastActiveAdmin(req.params.id)) {
+    if (await isLastActiveAdmin(req.params.id as string)) {
       res
         .status(409)
         .json({ message: "Cannot delete the last active admin." });

@@ -841,7 +841,7 @@ export class InventoryEndpoints {
   async updateIngredient(req: Request, res: Response): Promise<void> {
     try {
       await this.getDependencies();
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const existing = await this.ingredientRepository.findById(id);
       if (!existing.success || !existing.value) {
@@ -895,7 +895,7 @@ export class InventoryEndpoints {
   async deleteIngredient(req: Request, res: Response): Promise<void> {
     try {
       await this.getDependencies();
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const existing = await this.ingredientRepository.findById(id);
       if (!existing.success || !existing.value) {
@@ -944,7 +944,7 @@ export class InventoryEndpoints {
   async adjustStock(req: Request, res: Response): Promise<void> {
     try {
       await this.getDependencies();
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { delta, reason } = req.body;
       const deltaNum = Number(delta);
 
