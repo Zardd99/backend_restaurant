@@ -22,7 +22,7 @@ dotenv.config();
  * Fail fast if critical secrets are missing. Prevents the server from booting
  * in an insecure or non-functional state (e.g. missing JWT_SECRET).
  */
-const REQUIRED_ENV = ["JWT_SECRET", "MONGO_URI"] as const;
+const REQUIRED_ENV = ["JWT_SECRET", "MONGODB_URI"] as const;
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missingEnv.length > 0) {
   console.error(

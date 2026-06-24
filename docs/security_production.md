@@ -7,7 +7,7 @@ Checklist for keeping the deployed system safe. Pair with the
 ## What's enforced in code
 
 - **Security headers** — `helmet` + `x-powered-by` disabled ([server.ts](../server.ts)).
-- **Boot-time env validation** — server refuses to start without `JWT_SECRET` / `MONGO_URI`; warns on weak secret.
+- **Boot-time env validation** — server refuses to start without `JWT_SECRET` / `MONGODB_URI`; warns on weak secret.
 - **Rate limiting** — global throttle (2000 / 15 min per IP) + strict auth throttle (10 / 15 min) on `/api/auth/login` and `/register`.
 - **No error leakage** — auth/user controllers and the global handler return generic messages; details are logged server-side only.
 - **AuthZ** — every router uses `authenticate` + `requirePermission`; public self-registration can only create `customer`.
@@ -18,7 +18,7 @@ Checklist for keeping the deployed system safe. Pair with the
 
 - [ ] `NODE_ENV=production`.
 - [ ] All secrets set in the **Railway Variables** dashboard, never in a committed `.env`:
-      `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRE` (e.g. `7d`), `SMTP_*`,
+      `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRE` (e.g. `7d`), `SMTP_*`,
       `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `ADMIN_EMAIL`, `MANAGER_EMAIL`.
 - [ ] `JWT_SECRET` is a long (≥ 32 char) random string; **rotate** it (invalidates existing tokens).
 - [ ] `CORS_ORIGIN` set to the exact Vercel domain; remove ngrok/localhost regexes before going fully public.

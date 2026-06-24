@@ -14,7 +14,7 @@ const db_1 = __importDefault(require("./config/db"));
 const rateLimter_1 = __importDefault(require("./middleware/rateLimter"));
 const dependencies_1 = require("./config/dependencies");
 dotenv_1.default.config();
-const REQUIRED_ENV = ["JWT_SECRET", "MONGO_URI"];
+const REQUIRED_ENV = ["JWT_SECRET", "MONGODB_URI"];
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missingEnv.length > 0) {
     console.error(`Critical Failure: missing required environment variables: ${missingEnv.join(", ")}`);
