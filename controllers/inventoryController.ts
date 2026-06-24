@@ -19,10 +19,30 @@
 import { ok, err } from "../shared/result";
 
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import { DependencyContainer } from "../config/dependencies";
 import { InventoryManager } from "../application/managers/inventory-manager";
 import { IngredientRepository } from "../repositories/ingredient-repository";
 import { MenuItemRepository } from "../repositories/menu-item-repository";
+import { Ingredient } from "../models/ingredient";
+
+const serializeIngredient = (ing: Ingredient) => ({
+  id: ing.id,
+  name: ing.name,
+  description: ing.description,
+  unit: ing.unit,
+  currentStock: ing.getStock(),
+  minStock: ing.minStock,
+  reorderPoint: ing.reorderPoint,
+  costPerUnit: ing.costPerUnit,
+  category: ing.category,
+  supplierId: ing.supplierId,
+  shelfLife: ing.shelfLife,
+  isActive: ing.isActive,
+  status: ing.getStockLevel(),
+  isLowStock: ing.isLowStock(),
+  needsReorder: ing.needsReorder(),
+});
 
 export class InventoryEndpoints {
   private inventoryManager: InventoryManager;
@@ -736,6 +756,231 @@ export class InventoryEndpoints {
         ok: false,
         error: error instanceof Error ? error.message : "Unknown error",
       });
+    }
+  }
+
+  /**
+   * GET /api/inventory/ingredients
+   * Full ingredient list for management views.
+   */
+  async listIngredients(req: Request, res: Response): Promise<void> {
+    try {
+      await this.getDependencies();
+      const result = await this.ingredientRepository.findAll();
+
+      if (!result.success) {
+        res.status(500).json({ ok: false, error: "Failed to load ingredients" });
+        return;
+      }
+
+      res.json({ ok: true, value: result.value.map(serializeIngredient) });
+    } catch (error) {
+      console.error("Error listing ingredients:", error);
+      res.status(500).json({ ok: false, error: "Server error" });
+    }
+  }
+
+  /**
+   * POST /api/inventory/ingredients
+   * Create a new ingredient.
+   */
+  async createIngredient(req: Request, res: Response): Promise<void> {
+    try {
+      await this.getDependencies();
+      const {
+        name,
+        description = "",
+        unit,
+        currentStock = 0,
+        minStock,
+        reorderPoint,
+        costPerUnit,
+        supplierId,
+        category = "",
+        shelfLife,
+      } = req.body;
+
+      const id = new mongoose.Types.ObjectId().toString();
+      const created = Ingredient.create(
+        id,
+        name,
+        description,
+        unit,
+        Number(currentStock),
+        Number(minStock),
+        Number(reorderPoint),
+        Number(costPerUnit),
+        supplierId,
+        category,
+        shelfLife !== undefined ? Number(shelfLife) : undefined,
+        true,
+      );
+
+      if (!created.success) {
+        res.status(400).json({ ok: false, error: created.error.message });
+        return;
+      }
+
+      const saved = await this.ingredientRepository.save(created.value);
+      if (!saved.success) {
+        res.status(500).json({ ok: false, error: "Failed to save ingredient" });
+        return;
+      }
+
+      res.status(201).json({ ok: true, value: serializeIngredient(saved.value) });
+    } catch (error) {
+      console.error("Error creating ingredient:", error);
+      res.status(500).json({ ok: false, error: "Server error" });
+    }
+  }
+
+  /**
+   * PUT /api/inventory/ingredients/:id
+   * Update ingredient attributes (not stock — use /adjust).
+   */
+  async updateIngredient(req: Request, res: Response): Promise<void> {
+    try {
+      await this.getDependencies();
+      const { id } = req.params;
+
+      const existing = await this.ingredientRepository.findById(id);
+      if (!existing.success || !existing.value) {
+        res.status(404).json({ ok: false, error: "Ingredient not found" });
+        return;
+      }
+      const current = existing.value;
+      const body = req.body;
+
+      const updated = Ingredient.create(
+        current.id,
+        body.name ?? current.name,
+        body.description ?? current.description,
+        body.unit ?? current.unit,
+        current.getStock(),
+        body.minStock !== undefined ? Number(body.minStock) : current.minStock,
+        body.reorderPoint !== undefined
+          ? Number(body.reorderPoint)
+          : current.reorderPoint,
+        body.costPerUnit !== undefined
+          ? Number(body.costPerUnit)
+          : current.costPerUnit,
+        body.supplierId ?? current.supplierId,
+        body.category ?? current.category,
+        body.shelfLife !== undefined ? Number(body.shelfLife) : current.shelfLife,
+        body.isActive !== undefined ? Boolean(body.isActive) : current.isActive,
+      );
+
+      if (!updated.success) {
+        res.status(400).json({ ok: false, error: updated.error.message });
+        return;
+      }
+
+      const saved = await this.ingredientRepository.save(updated.value);
+      if (!saved.success) {
+        res.status(500).json({ ok: false, error: "Failed to update ingredient" });
+        return;
+      }
+
+      res.json({ ok: true, value: serializeIngredient(saved.value) });
+    } catch (error) {
+      console.error("Error updating ingredient:", error);
+      res.status(500).json({ ok: false, error: "Server error" });
+    }
+  }
+
+  /**
+   * DELETE /api/inventory/ingredients/:id
+   * Soft-delete (deactivate) an ingredient.
+   */
+  async deleteIngredient(req: Request, res: Response): Promise<void> {
+    try {
+      await this.getDependencies();
+      const { id } = req.params;
+
+      const existing = await this.ingredientRepository.findById(id);
+      if (!existing.success || !existing.value) {
+        res.status(404).json({ ok: false, error: "Ingredient not found" });
+        return;
+      }
+      const current = existing.value;
+
+      const deactivated = Ingredient.create(
+        current.id,
+        current.name,
+        current.description,
+        current.unit,
+        current.getStock(),
+        current.minStock,
+        current.reorderPoint,
+        current.costPerUnit,
+        current.supplierId,
+        current.category,
+        current.shelfLife,
+        false,
+      );
+
+      if (!deactivated.success) {
+        res.status(400).json({ ok: false, error: deactivated.error.message });
+        return;
+      }
+
+      const saved = await this.ingredientRepository.save(deactivated.value);
+      if (!saved.success) {
+        res.status(500).json({ ok: false, error: "Failed to delete ingredient" });
+        return;
+      }
+
+      res.json({ ok: true, value: { success: true, id } });
+    } catch (error) {
+      console.error("Error deleting ingredient:", error);
+      res.status(500).json({ ok: false, error: "Server error" });
+    }
+  }
+
+  /**
+   * POST /api/inventory/ingredients/:id/adjust
+   * Apply a relative stock delta (+restock / -wastage) with a reason.
+   */
+  async adjustStock(req: Request, res: Response): Promise<void> {
+    try {
+      await this.getDependencies();
+      const { id } = req.params;
+      const { delta, reason } = req.body;
+      const deltaNum = Number(delta);
+
+      if (!Number.isFinite(deltaNum) || deltaNum === 0) {
+        res.status(400).json({ ok: false, error: "A non-zero delta is required" });
+        return;
+      }
+
+      const existing = await this.ingredientRepository.findById(id);
+      if (!existing.success || !existing.value) {
+        res.status(404).json({ ok: false, error: "Ingredient not found" });
+        return;
+      }
+      const ingredient = existing.value;
+      const newStock = ingredient.getStock() + deltaNum;
+
+      const setResult = ingredient.setStock(newStock);
+      if (!setResult.success) {
+        res.status(400).json({ ok: false, error: setResult.error.message });
+        return;
+      }
+
+      const saved = await this.ingredientRepository.save(setResult.value);
+      if (!saved.success) {
+        res.status(500).json({ ok: false, error: "Failed to adjust stock" });
+        return;
+      }
+
+      console.log(
+        `Stock adjusted: ${ingredient.name} ${deltaNum > 0 ? "+" : ""}${deltaNum}${ingredient.unit} (reason: ${reason || "n/a"})`,
+      );
+
+      res.json({ ok: true, value: serializeIngredient(saved.value) });
+    } catch (error) {
+      console.error("Error adjusting stock:", error);
+      res.status(500).json({ ok: false, error: "Server error" });
     }
   }
 }

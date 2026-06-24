@@ -6,16 +6,20 @@ import {
   getReceiptByOrderId,
   updateReceipt,
 } from "../../controllers/receiptController";
-import { authenticate, authorize } from "../../middleware/auth";
+import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
 
 router.use(authenticate);
 
-router.get("/", authorize("admin", "manager"), getAllReceipts);
-router.get("/order/:orderId", authorize("admin", "manager", "cashier"), getReceiptByOrderId);
-router.get("/:id", authorize("admin", "manager", "cashier"), getReceiptById);
-router.post("/", authorize("admin", "manager", "cashier"), createReceipt);
-router.put("/:id", authorize("admin", "manager"), updateReceipt);
+router.get("/", requirePermission("receipt:list"), getAllReceipts);
+router.get(
+  "/order/:orderId",
+  requirePermission("receipt:read"),
+  getReceiptByOrderId,
+);
+router.get("/:id", requirePermission("receipt:read"), getReceiptById);
+router.post("/", requirePermission("receipt:write"), createReceipt);
+router.put("/:id", requirePermission("receipt:write"), updateReceipt);
 
 export default router;

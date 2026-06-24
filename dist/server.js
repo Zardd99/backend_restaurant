@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const cors_1 = __importDefault(require("cors"));
+const helmet_1 = __importDefault(require("helmet"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const index_1 = require("./server/index");
@@ -13,8 +14,21 @@ const db_1 = __importDefault(require("./config/db"));
 const rateLimter_1 = __importDefault(require("./middleware/rateLimter"));
 const dependencies_1 = require("./config/dependencies");
 dotenv_1.default.config();
+const REQUIRED_ENV = ["JWT_SECRET", "MONGO_URI"];
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+    console.error(`Critical Failure: missing required environment variables: ${missingEnv.join(", ")}`);
+    process.exit(1);
+}
+if (process.env.JWT_SECRET.length < 32) {
+    console.warn("Warning: JWT_SECRET is shorter than 32 characters. Use a long, random secret in production.");
+}
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
+app.disable("x-powered-by");
+app.use((0, helmet_1.default)({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 const io = (0, index_1.initWebSocketServer)(server);
 app.set("io", io);
 const port = process.env.PORT || 5000;
@@ -55,45 +69,19 @@ const corsOptions = {
     allowedHeaders: [
         "Content-Type",
         "Authorization",
-        "X-Requested-With",
         "Accept",
-        "Accept-Language",
-        "Accept-Encoding",
-        "Cache-Control",
-        "Connection",
-        "Host",
-        "Origin",
-        "Referer",
-        "User-Agent",
-        "X-Forwarded-For",
-        "X-Forwarded-Proto",
-        "X-Real-IP",
+        "X-Requested-With",
         "ngrok-skip-browser-warning",
-        "X-Vercel-*",
-        "X-API-Key",
-        "X-Client-Version",
-        "X-Device-Type",
-        "X-CSRF-Token",
-        "X-Frame-Options",
-        "Pragma",
-        "Expires",
-        "If-Modified-Since",
-        "If-None-Match",
     ],
-    exposedHeaders: [
-        "Authorization",
-        "Content-Length",
-        "X-Kuma-Revision",
-        "Set-Cookie",
-    ],
+    exposedHeaders: ["Content-Length"],
     maxAge: 86400,
     preflightContinue: false,
     optionsSuccessStatus: 200,
 };
 app.use((0, cors_1.default)(corsOptions));
-app.use(express_1.default.json());
-app.use((0, rateLimter_1.default)());
-app.use(express_1.default.urlencoded({ extended: true }));
+app.use(express_1.default.json({ limit: "1mb" }));
+app.use(express_1.default.urlencoded({ extended: true, limit: "1mb" }));
+app.use((0, rateLimter_1.default)({ windowMs: 15 * 60 * 1000, maxRequests: 2000 }));
 console.log("Setting up dependencies...");
 try {
     (0, dependencies_1.setupDependencies)();

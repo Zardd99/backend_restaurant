@@ -8,20 +8,21 @@ const orderController_1 = require("../../controllers/orderController");
 const auth_1 = require("../../middleware/auth");
 const Order_1 = __importDefault(require("../../models/Order"));
 const router = express_1.default.Router();
-router.post("/debug/order", (req, res) => {
-    console.log("Received order data:", req.body);
-    console.log("Headers:", req.headers);
-    res.json({ received: true, data: req.body });
-});
+if (process.env.NODE_ENV !== "production") {
+    router.post("/debug/order", (req, res) => {
+        console.log("Received order data:", req.body);
+        res.json({ received: true, data: req.body });
+    });
+}
 router.use(auth_1.authenticate);
-router.get("/", (0, auth_1.authorize)("admin", "manager", "chef", "waiter", "cashier"), orderController_1.getAllOrders);
-router.get("/stats", (0, auth_1.authorize)("admin", "manager", "chef", "waiter", "cashier"), orderController_1.getOrderStats);
-router.get("/:id", (0, auth_1.authorize)("admin", "manager", "chef", "waiter", "cashier"), orderController_1.getOrderById);
-router.post("/", auth_1.authenticate, (0, auth_1.authorize)("admin", "manager", "waiter"), orderController_1.createOrder);
-router.put("/:id", (0, auth_1.authorize)("admin", "manager", "waiter"), orderController_1.updateOrder);
-router.delete("/:id", (0, auth_1.authorize)("admin", "manager"), orderController_1.deleteOrder);
-router.patch("/:id/status", (0, auth_1.authorize)("admin", "manager", "chef", "waiter"), orderController_1.updateOrderStatus);
-router.post("/:id/inventory", async (req, res) => {
+router.get("/", (0, auth_1.requirePermission)("order:read"), orderController_1.getAllOrders);
+router.get("/stats", (0, auth_1.requirePermission)("order:read"), orderController_1.getOrderStats);
+router.get("/:id", (0, auth_1.requirePermission)("order:read"), orderController_1.getOrderById);
+router.post("/", (0, auth_1.requirePermission)("order:create"), orderController_1.createOrder);
+router.put("/:id", (0, auth_1.requirePermission)("order:update"), orderController_1.updateOrder);
+router.delete("/:id", (0, auth_1.requirePermission)("order:delete"), orderController_1.deleteOrder);
+router.patch("/:id/status", (0, auth_1.requirePermission)("order:status"), orderController_1.updateOrderStatus);
+router.post("/:id/inventory", (0, auth_1.requirePermission)("order:update"), async (req, res) => {
     try {
         const { id } = req.params;
         const { deductionStatus, deductionData, warning, timestamp } = req.body;
@@ -46,9 +47,7 @@ router.post("/:id/inventory", async (req, res) => {
     }
     catch (error) {
         console.error("Error updating order inventory info:", error);
-        res.status(500).json({
-            error: error instanceof Error ? error.message : "Unknown error",
-        });
+        res.status(500).json({ error: "Internal server error" });
     }
 });
 exports.default = router;

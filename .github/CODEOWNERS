@@ -1,0 +1,9 @@
+# Default owner for everything in the repo.
+* @Zardd99
+
+# Security-sensitive areas — review carefully.
+/config/rbac.ts                 @Zardd99
+/middleware/auth.ts             @Zardd99
+/controllers/authController.ts  @Zardd99
+/controllers/userController.ts  @Zardd99
+/.github/                       @Zardd99

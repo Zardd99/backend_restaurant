@@ -1,5 +1,5 @@
 import express from "express";
-import { authenticate, authorize } from "../../middleware/auth";
+import { authenticate, requirePermission } from "../../middleware/auth";
 import {
   getNotifications,
   markAllRead,
@@ -10,21 +10,11 @@ const router = express.Router();
 
 router.use(authenticate);
 
-router.get(
-  "/",
-  authorize("admin", "manager", "chef", "waiter", "cashier"),
-  getNotifications,
-);
-
-router.patch(
-  "/read",
-  authorize("admin", "manager", "chef", "waiter", "cashier"),
-  markAllRead,
-);
-
+router.get("/", requirePermission("notification:read"), getNotifications);
+router.patch("/read", requirePermission("notification:read"), markAllRead);
 router.delete(
   "/",
-  authorize("admin", "manager"),
+  requirePermission("notification:manage"),
   deleteAllNotifications,
 );
 

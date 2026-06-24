@@ -1,6 +1,17 @@
 import { Response } from "express";
 import User from "../models/User";
 import { AuthRequest } from "../middleware/auth";
+import { isRole } from "../config/rbac";
+
+const isLastActiveAdmin = async (userId: string): Promise<boolean> => {
+  const target = await User.findById(userId);
+  if (!target || target.role !== "admin") return false;
+  const activeAdmins = await User.countDocuments({
+    role: "admin",
+    isActive: true,
+  });
+  return activeAdmins <= 1;
+};
 
 /**
  * GET /api/users
@@ -18,9 +29,8 @@ export const getUsers = async (
       users,
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    res.status(500).json({ message: "Server error", error: errorMessage });
+    console.error("user controller error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -45,9 +55,8 @@ export const getUser = async (
       user,
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    res.status(500).json({ message: "Server error", error: errorMessage });
+    console.error("user controller error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -61,6 +70,15 @@ export const updateUser = async (
 ): Promise<void> => {
   try {
     const { name, email, role, phone, isActive } = req.body;
+
+    const demotesLastAdmin =
+      (role !== undefined && role !== "admin") || isActive === false;
+    if (demotesLastAdmin && (await isLastActiveAdmin(req.params.id))) {
+      res
+        .status(409)
+        .json({ message: "Cannot demote or deactivate the last active admin." });
+      return;
+    }
 
     const user = await User.findByIdAndUpdate(
       req.params.id,
@@ -78,9 +96,49 @@ export const updateUser = async (
       user,
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    res.status(500).json({ message: "Server error", error: errorMessage });
+    console.error("user controller error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * PATCH /api/users/:id/role
+ * Assign a role to a user (user:manage). Refuses to demote the last active admin.
+ */
+export const updateUserRole = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { role } = req.body;
+
+    if (!isRole(role)) {
+      res.status(400).json({ message: "Invalid role" });
+      return;
+    }
+
+    if (role !== "admin" && (await isLastActiveAdmin(req.params.id))) {
+      res
+        .status(409)
+        .json({ message: "Cannot demote the last active admin." });
+      return;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role },
+      { new: true, runValidators: true },
+    ).select("-password");
+
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    res.json({ success: true, user });
+  } catch (error: unknown) {
+    console.error("updateUserRole error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -93,6 +151,13 @@ export const deleteUser = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (await isLastActiveAdmin(req.params.id)) {
+      res
+        .status(409)
+        .json({ message: "Cannot delete the last active admin." });
+      return;
+    }
+
     const user = await User.findByIdAndDelete(req.params.id);
 
     if (!user) {
@@ -105,8 +170,7 @@ export const deleteUser = async (
       message: "User deleted successfully",
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    res.status(500).json({ message: "Server error", error: errorMessage });
+    console.error("user controller error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };

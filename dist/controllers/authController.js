@@ -11,13 +11,13 @@ const generateToken = (id) => {
         throw new Error("JWT_SECRET environment variable is not defined");
     }
     const options = {
-        expiresIn: process.env.JWT_EXPIRE || "30d",
+        expiresIn: process.env.JWT_EXPIRE || "7d",
     };
     return jsonwebtoken_1.default.sign({ id }, process.env.JWT_SECRET, options);
 };
 const register = async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password } = req.body;
         if (!name || !email || !password) {
             res.status(400).json({
                 message: "Name, email, and password are required",
@@ -33,7 +33,7 @@ const register = async (req, res) => {
             name,
             email,
             password,
-            role: role || "customer",
+            role: "customer",
         });
         const token = generateToken(user._id.toString());
         res.status(201).json({
@@ -58,10 +58,8 @@ const register = async (req, res) => {
             res.status(400).json({ message: "Validation error", errors });
         }
         else {
-            res.status(500).json({
-                message: "Server error creating user",
-                error: error instanceof Error ? error.message : "An unknown error occurred",
-            });
+            console.error("register error:", error);
+            res.status(500).json({ message: "Server error creating user" });
         }
     }
 };
@@ -105,11 +103,8 @@ const login = async (req, res) => {
         });
     }
     catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        res.status(500).json({
-            message: "Server error during login",
-            error: errorMessage,
-        });
+        console.error("login error:", error);
+        res.status(500).json({ message: "Server error during login" });
     }
 };
 exports.login = login;
@@ -121,11 +116,8 @@ const getMe = async (req, res) => {
         });
     }
     catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        res.status(500).json({
-            message: "Server error retrieving user profile",
-            error: errorMessage,
-        });
+        console.error("getMe error:", error);
+        res.status(500).json({ message: "Server error retrieving user profile" });
     }
 };
 exports.getMe = getMe;
@@ -162,10 +154,8 @@ const updateProfile = async (req, res) => {
             res.status(400).json({ message: "Validation error", errors });
         }
         else {
-            res.status(500).json({
-                message: "Server error updating user profile",
-                error: error instanceof Error ? error.message : "An unknown error occurred",
-            });
+            console.error("updateProfile error:", error);
+            res.status(500).json({ message: "Server error updating user profile" });
         }
     }
 };
@@ -208,10 +198,8 @@ const changePassword = async (req, res) => {
             res.status(400).json({ message: "Validation error", errors });
         }
         else {
-            res.status(500).json({
-                message: "Server error changing password",
-                error: error instanceof Error ? error.message : "An unknown error occurred",
-            });
+            console.error("changePassword error:", error);
+            res.status(500).json({ message: "Server error changing password" });
         }
     }
 };

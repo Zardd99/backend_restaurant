@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User, { IUser } from "../models/User";
+import { Permission, hasAnyPermission } from "../config/rbac";
 
 export interface AuthRequest extends Request {
   user?: IUser;
@@ -76,9 +77,29 @@ export const authorize = (...roles: string[]) => {
     }
 
     if (!roles.includes(req.user.role)) {
-      res.status(403).json({
-        message: `Access denied. Required roles: ${roles.join(", ")}`,
-      });
+      res.status(403).json({ message: "Access denied. Insufficient role." });
+      return;
+    }
+
+    next();
+  };
+};
+
+/**
+ * Authorize a request if the user's role grants ANY of the given permissions.
+ * Prefer this over `authorize(...roles)` — permissions live in config/rbac.ts.
+ */
+export const requirePermission = (...permissions: Permission[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ message: "Access denied. No user found." });
+      return;
+    }
+
+    if (!hasAnyPermission(req.user.role, permissions)) {
+      res
+        .status(403)
+        .json({ message: "Access denied. Insufficient permissions." });
       return;
     }
 

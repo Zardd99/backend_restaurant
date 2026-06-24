@@ -4,17 +4,19 @@ import {
   getUser,
   updateUser,
   deleteUser,
+  updateUserRole,
 } from "../../controllers/userController";
-import { authenticate, authorize } from "../../middleware/auth";
+import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
 
-// All routes protected and admin only
-router.use(authenticate, authorize("admin"));
+// All routes require staff-administration permission.
+router.use(authenticate, requirePermission("user:manage"));
 
 router.get("/", getUsers);
 router.get("/:id", getUser);
 router.put("/:id", updateUser);
+router.patch("/:id/role", updateUserRole);
 router.delete("/:id", deleteUser);
 
 export default router;

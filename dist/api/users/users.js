@@ -7,10 +7,11 @@ const express_1 = __importDefault(require("express"));
 const userController_1 = require("../../controllers/userController");
 const auth_1 = require("../../middleware/auth");
 const router = express_1.default.Router();
-router.use(auth_1.authenticate, (0, auth_1.authorize)("admin"));
+router.use(auth_1.authenticate, (0, auth_1.requirePermission)("user:manage"));
 router.get("/", userController_1.getUsers);
 router.get("/:id", userController_1.getUser);
 router.put("/:id", userController_1.updateUser);
+router.patch("/:id/role", userController_1.updateUserRole);
 router.delete("/:id", userController_1.deleteUser);
 exports.default = router;
 //# sourceMappingURL=users.js.map

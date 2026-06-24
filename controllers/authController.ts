@@ -14,10 +14,9 @@ const generateToken = (id: string): string => {
     throw new Error("JWT_SECRET environment variable is not defined");
   }
 
-  // Configure token expiration (defaults to 30 days)
+  // Configure token expiration (defaults to 7 days)
   const options: jwt.SignOptions = {
-    expiresIn:
-      (process.env.JWT_EXPIRE as jwt.SignOptions["expiresIn"]) || "30d",
+    expiresIn: (process.env.JWT_EXPIRE as jwt.SignOptions["expiresIn"]) || "7d",
   };
 
   // Sign and return the JWT
@@ -32,7 +31,7 @@ const generateToken = (id: string): string => {
  */
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     // Validate mandatory registration fields
     if (!name || !email || !password) {
@@ -49,12 +48,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Persist new user to the database
+    // Public self-registration always creates a customer. Staff roles are
+    // assigned only through the admin-only users API — never trust client role.
     const user = await User.create({
       name,
       email,
       password,
-      role: role || "customer",
+      role: "customer",
     });
 
     // Issue authentication token after successful registration
@@ -90,12 +90,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       );
       res.status(400).json({ message: "Validation error", errors });
     } else {
-      // Fallback for unexpected server-side errors
-      res.status(500).json({
-        message: "Server error creating user",
-        error:
-          error instanceof Error ? error.message : "An unknown error occurred",
-      });
+      // Fallback for unexpected server-side errors — log internally, do not leak
+      console.error("register error:", error);
+      res.status(500).json({ message: "Server error creating user" });
     }
   }
 };
@@ -155,13 +152,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error: Error | unknown) {
-    // Handle unexpected authentication errors
-    const errorMessage =
-      error instanceof Error ? error.message : "An unknown error occurred";
-    res.status(500).json({
-      message: "Server error during login",
-      error: errorMessage,
-    });
+    // Handle unexpected authentication errors — log internally, do not leak
+    console.error("login error:", error);
+    res.status(500).json({ message: "Server error during login" });
   }
 };
 
@@ -178,13 +171,8 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       user: req.user,
     });
   } catch (error: Error | unknown) {
-    // Handle unexpected profile retrieval errors
-    const errorMessage =
-      error instanceof Error ? error.message : "An unknown error occurred";
-    res.status(500).json({
-      message: "Server error retrieving user profile",
-      error: errorMessage,
-    });
+    console.error("getMe error:", error);
+    res.status(500).json({ message: "Server error retrieving user profile" });
   }
 };
 
@@ -243,12 +231,8 @@ export const updateProfile = async (
       );
       res.status(400).json({ message: "Validation error", errors });
     } else {
-      // Handle unexpected update failures
-      res.status(500).json({
-        message: "Server error updating user profile",
-        error:
-          error instanceof Error ? error.message : "An unknown error occurred",
-      });
+      console.error("updateProfile error:", error);
+      res.status(500).json({ message: "Server error updating user profile" });
     }
   }
 };
@@ -319,12 +303,8 @@ export const changePassword = async (
       );
       res.status(400).json({ message: "Validation error", errors });
     } else {
-      // Handle unexpected password update errors
-      res.status(500).json({
-        message: "Server error changing password",
-        error:
-          error instanceof Error ? error.message : "An unknown error occurred",
-      });
+      console.error("changePassword error:", error);
+      res.status(500).json({ message: "Server error changing password" });
     }
   }
 };

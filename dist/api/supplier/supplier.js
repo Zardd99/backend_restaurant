@@ -38,14 +38,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const supplierController = __importStar(require("../../controllers/supplierController"));
+const auth_1 = require("../../middleware/auth");
 const router = express_1.default.Router();
-router.get("/", supplierController.getAllSuppliers);
-router.get("/:id", supplierController.getSupplierById);
-router.post("/", supplierController.createSupplier);
-router.put("/:id", supplierController.updateSupplier);
-router.delete("/:id", supplierController.deleteSupplier);
-router.get("/:id/performance", supplierController.getSupplierPerformance);
-router.get("/:id/low-stock", supplierController.getSupplierLowStockAlerts);
-router.get("/:id/orders", supplierController.getSupplierOrders);
+router.use(auth_1.authenticate);
+router.get("/", (0, auth_1.requirePermission)("supplier:read"), supplierController.getAllSuppliers);
+router.get("/:id", (0, auth_1.requirePermission)("supplier:read"), supplierController.getSupplierById);
+router.post("/", (0, auth_1.requirePermission)("supplier:write"), supplierController.createSupplier);
+router.put("/:id", (0, auth_1.requirePermission)("supplier:write"), supplierController.updateSupplier);
+router.delete("/:id", (0, auth_1.requirePermission)("supplier:write"), supplierController.deleteSupplier);
+router.get("/:id/performance", (0, auth_1.requirePermission)("supplier:read"), supplierController.getSupplierPerformance);
+router.get("/:id/low-stock", (0, auth_1.requirePermission)("supplier:read"), supplierController.getSupplierLowStockAlerts);
+router.get("/:id/orders", (0, auth_1.requirePermission)("supplier:read"), supplierController.getSupplierOrders);
 exports.default = router;
 //# sourceMappingURL=supplier.js.map

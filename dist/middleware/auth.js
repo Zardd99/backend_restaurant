@@ -3,9 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.authorize = exports.authenticate = exports.authenticateWebSocket = void 0;
+exports.requirePermission = exports.authorize = exports.authenticate = exports.authenticateWebSocket = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = __importDefault(require("../models/User"));
+const rbac_1 = require("../config/rbac");
 const authenticateWebSocket = (token) => {
     return new Promise((resolve, reject) => {
         if (!token) {
@@ -55,13 +56,27 @@ const authorize = (...roles) => {
             return;
         }
         if (!roles.includes(req.user.role)) {
-            res.status(403).json({
-                message: `Access denied. Required roles: ${roles.join(", ")}`,
-            });
+            res.status(403).json({ message: "Access denied. Insufficient role." });
             return;
         }
         next();
     };
 };
 exports.authorize = authorize;
+const requirePermission = (...permissions) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            res.status(401).json({ message: "Access denied. No user found." });
+            return;
+        }
+        if (!(0, rbac_1.hasAnyPermission)(req.user.role, permissions)) {
+            res
+                .status(403)
+                .json({ message: "Access denied. Insufficient permissions." });
+            return;
+        }
+        next();
+    };
+};
+exports.requirePermission = requirePermission;
 //# sourceMappingURL=auth.js.map

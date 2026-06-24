@@ -1,20 +1,12 @@
 import express from "express";
 import { getServedOrders, processPayment } from "../../controllers/billingController";
-import { authenticate, authorize } from "../../middleware/auth";
+import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
 router.use(authenticate);
 
-router.get(
-  "/served",
-  authorize("admin", "manager", "cashier", "waiter"),
-  getServedOrders,
-);
+router.get("/served", requirePermission("billing:read"), getServedOrders);
 
-router.patch(
-  "/:id/pay",
-  authorize("admin", "manager", "cashier", "waiter"),
-  processPayment,
-);
+router.patch("/:id/pay", requirePermission("billing:pay"), processPayment);
 
 export default router;
