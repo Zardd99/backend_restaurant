@@ -22,7 +22,7 @@ router.get("/active", async (req, res) => {
     }
 });
 router.use(auth_1.authenticate);
-router.get("/", (0, auth_1.authorize)("admin"), async (req, res) => {
+router.get("/", (0, auth_1.requirePermission)("promotion:manage"), async (req, res) => {
     try {
         const promotions = await Promotion_1.default.find({})
             .populate("createdBy", "name email")
@@ -33,7 +33,7 @@ router.get("/", (0, auth_1.authorize)("admin"), async (req, res) => {
         res.status(500).json({ error: "Failed to fetch promotions" });
     }
 });
-router.get("/:id", (0, auth_1.authorize)("admin"), async (req, res) => {
+router.get("/:id", (0, auth_1.requirePermission)("promotion:manage"), async (req, res) => {
     try {
         const promotion = await Promotion_1.default.findById(req.params.id).populate("createdBy", "name email");
         if (!promotion) {
@@ -45,7 +45,7 @@ router.get("/:id", (0, auth_1.authorize)("admin"), async (req, res) => {
         res.status(500).json({ error: "Failed to fetch promotion" });
     }
 });
-router.post("/", (0, auth_1.authorize)("admin"), async (req, res) => {
+router.post("/", (0, auth_1.requirePermission)("promotion:manage"), async (req, res) => {
     try {
         const { name, description, discountType, discountValue, appliesTo, targetIds, startDate, endDate, minimumOrderAmount, maxUsagePerCustomer, } = req.body;
         if (!name ||
@@ -89,7 +89,7 @@ router.post("/", (0, auth_1.authorize)("admin"), async (req, res) => {
         res.status(500).json({ error: "Failed to create promotion" });
     }
 });
-router.put("/:id", (0, auth_1.authorize)("admin"), async (req, res) => {
+router.put("/:id", (0, auth_1.requirePermission)("promotion:manage"), async (req, res) => {
     try {
         const { name, description, discountType, discountValue, appliesTo, targetIds, startDate, endDate, isActive, minimumOrderAmount, maxUsagePerCustomer, } = req.body;
         if (discountValue !== undefined &&
@@ -124,7 +124,7 @@ router.put("/:id", (0, auth_1.authorize)("admin"), async (req, res) => {
         res.status(500).json({ error: "Failed to update promotion" });
     }
 });
-router.delete("/:id", (0, auth_1.authorize)("admin"), async (req, res) => {
+router.delete("/:id", (0, auth_1.requirePermission)("promotion:manage"), async (req, res) => {
     try {
         const promotion = await Promotion_1.default.findByIdAndDelete(req.params.id);
         if (!promotion) {

@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import { authenticate, authorize } from "../../middleware/auth";
+import { authenticate, requirePermission } from "../../middleware/auth";
 import Promotion from "../../models/Promotion";
 
 // Extend Express Request to include user property
@@ -40,7 +40,7 @@ router.use(authenticate);
  * GET /api/promotions
  * Retrieve all promotions (admin only)
  */
-router.get("/", authorize("admin"), async (req, res) => {
+router.get("/", requirePermission("promotion:manage"), async (req, res) => {
   try {
     const promotions = await Promotion.find({})
       .populate("createdBy", "name email")
@@ -55,7 +55,7 @@ router.get("/", authorize("admin"), async (req, res) => {
  * GET /api/promotions/:id
  * Retrieve a specific promotion (admin only)
  */
-router.get("/:id", authorize("admin"), async (req, res) => {
+router.get("/:id", requirePermission("promotion:manage"), async (req, res) => {
   try {
     const promotion = await Promotion.findById(req.params.id).populate(
       "createdBy",
@@ -74,7 +74,7 @@ router.get("/:id", authorize("admin"), async (req, res) => {
  * POST /api/promotions
  * Create a new promotion (admin only)
  */
-router.post("/", authorize("admin"), async (req, res) => {
+router.post("/", requirePermission("promotion:manage"), async (req, res) => {
   try {
     const {
       name,
@@ -145,7 +145,7 @@ router.post("/", authorize("admin"), async (req, res) => {
  * PUT /api/promotions/:id
  * Update a promotion (admin only)
  */
-router.put("/:id", authorize("admin"), async (req, res) => {
+router.put("/:id", requirePermission("promotion:manage"), async (req, res) => {
   try {
     const {
       name,
@@ -207,7 +207,7 @@ router.put("/:id", authorize("admin"), async (req, res) => {
  * DELETE /api/promotions/:id
  * Delete/deactivate a promotion (admin only)
  */
-router.delete("/:id", authorize("admin"), async (req, res) => {
+router.delete("/:id", requirePermission("promotion:manage"), async (req, res) => {
   try {
     const promotion = await Promotion.findByIdAndDelete(req.params.id);
 

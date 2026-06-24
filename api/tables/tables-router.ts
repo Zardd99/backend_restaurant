@@ -1,7 +1,11 @@
 import { Router, Request, Response } from "express";
 import { tableOccupancyService } from "../../services/TableOccupancyService";
+import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = Router();
+
+// All table endpoints require an authenticated staff member.
+router.use(authenticate);
 
 /**
  * GET /api/tables/occupancy-summary
@@ -9,6 +13,7 @@ const router = Router();
  */
 router.get(
   "/api/tables/occupancy-summary",
+  requirePermission("table:read"),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const maxTables = parseInt(req.query.maxTables as string) || 50;
@@ -34,6 +39,7 @@ router.get(
  */
 router.get(
   "/api/tables/occupied",
+  requirePermission("table:read"),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const occupiedTables = await tableOccupancyService.getOccupiedTables();
@@ -58,6 +64,7 @@ router.get(
  */
 router.get(
   "/api/tables/available",
+  requirePermission("table:read"),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const maxTables = parseInt(req.query.maxTables as string) || 50;
@@ -84,6 +91,7 @@ router.get(
  */
 router.get(
   "/api/tables/status",
+  requirePermission("table:read"),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const maxTables = parseInt(req.query.maxTables as string) || 50;
@@ -109,6 +117,7 @@ router.get(
  */
 router.get(
   "/api/tables/:tableNumber",
+  requirePermission("table:read"),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { tableNumber } = req.params as Record<string, string>;
@@ -145,6 +154,7 @@ router.get(
  */
 router.post(
   "/api/tables/:tableNumber/release",
+  requirePermission("table:manage"),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { tableNumber } = req.params as Record<string, string>;
@@ -178,6 +188,7 @@ router.post(
  */
 router.get(
   "/api/tables/:tableNumber/order",
+  requirePermission("table:read"),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { tableNumber } = req.params as Record<string, string>;

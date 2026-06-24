@@ -2,8 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const TableOccupancyService_1 = require("../../services/TableOccupancyService");
+const auth_1 = require("../../middleware/auth");
 const router = (0, express_1.Router)();
-router.get("/api/tables/occupancy-summary", async (req, res) => {
+router.use(auth_1.authenticate);
+router.get("/api/tables/occupancy-summary", (0, auth_1.requirePermission)("table:read"), async (req, res) => {
     try {
         const maxTables = parseInt(req.query.maxTables) || 50;
         const summary = await TableOccupancyService_1.tableOccupancyService.getTableOccupancySummary(maxTables);
@@ -19,7 +21,7 @@ router.get("/api/tables/occupancy-summary", async (req, res) => {
         });
     }
 });
-router.get("/api/tables/occupied", async (req, res) => {
+router.get("/api/tables/occupied", (0, auth_1.requirePermission)("table:read"), async (req, res) => {
     try {
         const occupiedTables = await TableOccupancyService_1.tableOccupancyService.getOccupiedTables();
         res.json({
@@ -35,7 +37,7 @@ router.get("/api/tables/occupied", async (req, res) => {
         });
     }
 });
-router.get("/api/tables/available", async (req, res) => {
+router.get("/api/tables/available", (0, auth_1.requirePermission)("table:read"), async (req, res) => {
     try {
         const maxTables = parseInt(req.query.maxTables) || 50;
         const availableTables = await TableOccupancyService_1.tableOccupancyService.getAvailableTables(maxTables);
@@ -52,7 +54,7 @@ router.get("/api/tables/available", async (req, res) => {
         });
     }
 });
-router.get("/api/tables/status", async (req, res) => {
+router.get("/api/tables/status", (0, auth_1.requirePermission)("table:read"), async (req, res) => {
     try {
         const maxTables = parseInt(req.query.maxTables) || 50;
         const tableStatus = await TableOccupancyService_1.tableOccupancyService.getDetailedTableStatus(maxTables);
@@ -68,7 +70,7 @@ router.get("/api/tables/status", async (req, res) => {
         });
     }
 });
-router.get("/api/tables/:tableNumber", async (req, res) => {
+router.get("/api/tables/:tableNumber", (0, auth_1.requirePermission)("table:read"), async (req, res) => {
     try {
         const { tableNumber } = req.params;
         const tableNum = parseInt(tableNumber);
@@ -94,7 +96,7 @@ router.get("/api/tables/:tableNumber", async (req, res) => {
         });
     }
 });
-router.post("/api/tables/:tableNumber/release", async (req, res) => {
+router.post("/api/tables/:tableNumber/release", (0, auth_1.requirePermission)("table:manage"), async (req, res) => {
     try {
         const { tableNumber } = req.params;
         const tableNum = parseInt(tableNumber);
@@ -117,7 +119,7 @@ router.post("/api/tables/:tableNumber/release", async (req, res) => {
         });
     }
 });
-router.get("/api/tables/:tableNumber/order", async (req, res) => {
+router.get("/api/tables/:tableNumber/order", (0, auth_1.requirePermission)("table:read"), async (req, res) => {
     try {
         const { tableNumber } = req.params;
         const tableNum = parseInt(tableNumber);

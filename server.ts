@@ -1,6 +1,7 @@
 import express, { Express } from "express";
 import http from "http";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 
@@ -17,8 +18,35 @@ import { setupDependencies, DependencyContainer } from "./config/dependencies";
 
 dotenv.config();
 
+/**
+ * Fail fast if critical secrets are missing. Prevents the server from booting
+ * in an insecure or non-functional state (e.g. missing JWT_SECRET).
+ */
+const REQUIRED_ENV = ["JWT_SECRET", "MONGO_URI"] as const;
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+  console.error(
+    `Critical Failure: missing required environment variables: ${missingEnv.join(", ")}`,
+  );
+  process.exit(1);
+}
+if ((process.env.JWT_SECRET as string).length < 32) {
+  console.warn(
+    "Warning: JWT_SECRET is shorter than 32 characters. Use a long, random secret in production.",
+  );
+}
+
 const app: Express = express();
 const server = http.createServer(app);
+
+// Security headers. Cross-origin resource policy relaxed so the separate
+// Vercel frontend can consume the API; transport is HTTPS in production.
+app.disable("x-powered-by");
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
 
 // Initialize real-time communication layer and expose io on app for controllers
 const io = initWebSocketServer(server);
@@ -70,41 +98,15 @@ const corsOptions: cors.CorsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  // Comprehensive header list to accommodate Vercel, Ngrok, and Custom Auth flows
+  // Minimal header allowlist — only what the clients actually send.
   allowedHeaders: [
     "Content-Type",
     "Authorization",
-    "X-Requested-With",
     "Accept",
-    "Accept-Language",
-    "Accept-Encoding",
-    "Cache-Control",
-    "Connection",
-    "Host",
-    "Origin",
-    "Referer",
-    "User-Agent",
-    "X-Forwarded-For",
-    "X-Forwarded-Proto",
-    "X-Real-IP",
+    "X-Requested-With",
     "ngrok-skip-browser-warning",
-    "X-Vercel-*",
-    "X-API-Key",
-    "X-Client-Version",
-    "X-Device-Type",
-    "X-CSRF-Token",
-    "X-Frame-Options",
-    "Pragma",
-    "Expires",
-    "If-Modified-Since",
-    "If-None-Match",
   ],
-  exposedHeaders: [
-    "Authorization",
-    "Content-Length",
-    "X-Kuma-Revision",
-    "Set-Cookie",
-  ],
+  exposedHeaders: ["Content-Length"],
   maxAge: 86400,
   preflightContinue: false,
   optionsSuccessStatus: 200,
@@ -112,9 +114,10 @@ const corsOptions: cors.CorsOptions = {
 
 // Global Middleware Configuration
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(rateLimiter());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+// Global throttle — bounded per IP across all REST endpoints.
+app.use(rateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 2000 }));
 
 /**
  * Dependency Injection Initialization

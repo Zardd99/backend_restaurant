@@ -8,54 +8,36 @@ import {
   updateOrderStatus,
   getOrderStats,
 } from "../../controllers/orderController";
-import { authenticate, authorize } from "../../middleware/auth";
+import { authenticate, requirePermission } from "../../middleware/auth";
 import Order from "../../models/Order";
 
 const router = express.Router();
-// Debug route (keep public for development to inspect payloads)
-router.post("/debug/order", (req, res) => {
-  console.log("Received order data:", req.body);
-  console.log("Headers:", req.headers);
-  res.json({ received: true, data: req.body });
-});
+
+// Debug route — development only, never exposed in production.
+if (process.env.NODE_ENV !== "production") {
+  router.post("/debug/order", (req, res) => {
+    console.log("Received order data:", req.body);
+    res.json({ received: true, data: req.body });
+  });
+}
 
 // Apply authentication to all subsequent routes
 router.use(authenticate);
 
-// Role-based access
-router.get(
-  "/",
-  authorize("admin", "manager", "chef", "waiter", "cashier"),
-  getAllOrders,
-);
-
-router.get(
-  "/stats",
-  authorize("admin", "manager", "chef", "waiter", "cashier"),
-  getOrderStats,
-);
-
-router.get(
-  "/:id",
-  authorize("admin", "manager", "chef", "waiter", "cashier"),
-  getOrderById,
-);
-
-router.post(
-  "/",
-  authenticate,
-  authorize("admin", "manager", "waiter"),
-  createOrder,
-);
-router.put("/:id", authorize("admin", "manager", "waiter"), updateOrder);
-router.delete("/:id", authorize("admin", "manager"), deleteOrder);
+// Permission-based access (see config/rbac.ts)
+router.get("/", requirePermission("order:read"), getAllOrders);
+router.get("/stats", requirePermission("order:read"), getOrderStats);
+router.get("/:id", requirePermission("order:read"), getOrderById);
+router.post("/", requirePermission("order:create"), createOrder);
+router.put("/:id", requirePermission("order:update"), updateOrder);
+router.delete("/:id", requirePermission("order:delete"), deleteOrder);
 router.patch(
   "/:id/status",
-  authorize("admin", "manager", "chef", "waiter"),
+  requirePermission("order:status"),
   updateOrderStatus,
 );
 
-router.post("/:id/inventory", async (req, res) => {
+router.post("/:id/inventory", requirePermission("order:update"), async (req, res) => {
   try {
     const { id } = req.params;
     const { deductionStatus, deductionData, warning, timestamp } = req.body;
@@ -85,9 +67,7 @@ router.post("/:id/inventory", async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating order inventory info:", error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

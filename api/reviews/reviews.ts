@@ -9,6 +9,7 @@ import {
   deleteReview,
   bulkDeleteReviews,
 } from "../../controllers/reviewController";
+import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
 
@@ -28,13 +29,28 @@ const router = express.Router();
  * POST    /bulk-delete        - Bulk delete reviews (Admin only)
  */
 
+// Reading reviews is public.
 router.get("/", getAllReviews);
 router.get("/paginated", getReviewsWithPagination);
 router.get("/rating-range", getReviewsByRatingRange);
 router.get("/:id", getReviewById);
-router.post("/", createReview);
-router.put("/:id", updateReview);
-router.delete("/:id", deleteReview);
-router.post("/bulk-delete", bulkDeleteReviews);
+
+// Writing a review requires an authenticated user.
+router.post("/", authenticate, requirePermission("review:write"), createReview);
+router.put("/:id", authenticate, requirePermission("review:write"), updateReview);
+
+// Removing reviews is moderation — admin/manager only.
+router.delete(
+  "/:id",
+  authenticate,
+  requirePermission("review:read"),
+  deleteReview,
+);
+router.post(
+  "/bulk-delete",
+  authenticate,
+  requirePermission("review:read"),
+  bulkDeleteReviews,
+);
 
 export default router;

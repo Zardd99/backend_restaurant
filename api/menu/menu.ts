@@ -6,13 +6,22 @@ import {
   getMenuId,
   updateMenu,
 } from "../../controllers/menuController";
+import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
 
+// Menu reads are public (landing page + customer ordering UI).
 router.get("/", getAllMenu);
 router.get("/:id", getMenuId);
-router.post("/", createMenu);
-router.put("/:id", updateMenu);
-router.delete("/:id", deleteMenuItem);
+
+// Mutations require authenticated staff with menu:write.
+router.post("/", authenticate, requirePermission("menu:write"), createMenu);
+router.put("/:id", authenticate, requirePermission("menu:write"), updateMenu);
+router.delete(
+  "/:id",
+  authenticate,
+  requirePermission("menu:write"),
+  deleteMenuItem,
+);
 
 export default router;

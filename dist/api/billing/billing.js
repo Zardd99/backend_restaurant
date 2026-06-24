@@ -8,7 +8,7 @@ const billingController_1 = require("../../controllers/billingController");
 const auth_1 = require("../../middleware/auth");
 const router = express_1.default.Router();
 router.use(auth_1.authenticate);
-router.get("/served", (0, auth_1.authorize)("admin", "manager", "cashier", "waiter"), billingController_1.getServedOrders);
-router.patch("/:id/pay", (0, auth_1.authorize)("admin", "manager", "cashier", "waiter"), billingController_1.processPayment);
+router.get("/served", (0, auth_1.requirePermission)("billing:read"), billingController_1.getServedOrders);
+router.patch("/:id/pay", (0, auth_1.requirePermission)("billing:pay"), billingController_1.processPayment);
 exports.default = router;
 //# sourceMappingURL=billing.js.map
