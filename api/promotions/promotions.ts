@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import { apiLimiter } from "../../middleware/apiLimiter";
 import { authenticate, requirePermission } from "../../middleware/auth";
 import Promotion from "../../models/Promotion";
 
@@ -12,6 +13,8 @@ declare global {
 }
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 /**
  * GET /api/promotions/active

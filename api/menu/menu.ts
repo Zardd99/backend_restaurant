@@ -1,4 +1,5 @@
 import express from "express";
+import { apiLimiter } from "../../middleware/apiLimiter";
 import {
   createMenu,
   deleteMenuItem,
@@ -9,6 +10,8 @@ import {
 import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 // Menu reads are public (landing page + customer ordering UI).
 router.get("/", getAllMenu);

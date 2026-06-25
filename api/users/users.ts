@@ -1,4 +1,5 @@
 import express from "express";
+import { apiLimiter } from "../../middleware/apiLimiter";
 import {
   getUsers,
   getUser,
@@ -9,6 +10,8 @@ import {
 import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 // All routes require staff-administration permission.
 router.use(authenticate, requirePermission("user:manage"));

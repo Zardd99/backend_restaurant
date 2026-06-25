@@ -1,4 +1,5 @@
 import express from "express";
+import { apiLimiter } from "../../middleware/apiLimiter";
 import {
   getAllReviews,
   getReviewById,
@@ -12,6 +13,8 @@ import {
 import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 /**
  * REVIEW ROUTES

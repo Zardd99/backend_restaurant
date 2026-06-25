@@ -1,8 +1,11 @@
 import { Router, Request, Response } from "express";
+import { apiLimiter } from "../../middleware/apiLimiter";
 import { tableOccupancyService } from "../../services/TableOccupancyService";
 import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = Router();
+
+router.use(apiLimiter);
 
 // All table endpoints require an authenticated staff member.
 router.use(authenticate);
