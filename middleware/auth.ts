@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User, { IUser } from "../models/User";
 import { Permission, hasAnyPermission } from "../config/rbac";
+import { getCachedUser, setCachedUser } from "../utils/userCache";
 
 export interface AuthRequest extends Request {
   user?: IUser;
@@ -50,7 +51,15 @@ export const authenticate = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: string;
     };
-    const user = await User.findById(decoded.id).select("-password");
+
+    let user = getCachedUser(decoded.id);
+    if (!user) {
+      const fetched = await User.findById(decoded.id).select("-password");
+      if (fetched) {
+        user = fetched;
+        setCachedUser(decoded.id, fetched);
+      }
+    }
 
     if (!user) {
       res.status(401).json({ message: "Token is not valid." });
