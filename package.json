@@ -207,7 +207,7 @@
     "jsonwebtoken": "^9.0.3",
     "jsx-ast-utils": "^3.3.5",
     "jwa": "^1.4.2",
-    "jws": "^3.2.2",
+    "jws": "^4.0.1",
     "kareem": "^2.6.3",
     "keyv": "^4.5.4",
     "language-subtag-registry": "^0.4.2",
