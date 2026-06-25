@@ -2,6 +2,7 @@ import { Response } from "express";
 import User from "../models/User";
 import { AuthRequest } from "../middleware/auth";
 import { isRole } from "../config/rbac";
+import { invalidateCachedUser } from "../utils/userCache";
 
 const isLastActiveAdmin = async (userId: string): Promise<boolean> => {
   const target = await User.findById(userId);
@@ -91,6 +92,8 @@ export const updateUser = async (
       return;
     }
 
+    invalidateCachedUser(req.params.id as string);
+
     res.json({
       success: true,
       user,
@@ -135,6 +138,8 @@ export const updateUserRole = async (
       return;
     }
 
+    invalidateCachedUser(req.params.id as string);
+
     res.json({ success: true, user });
   } catch (error: unknown) {
     console.error("updateUserRole error:", error);
@@ -164,6 +169,8 @@ export const deleteUser = async (
       res.status(404).json({ message: "User not found" });
       return;
     }
+
+    invalidateCachedUser(req.params.id as string);
 
     res.json({
       success: true,

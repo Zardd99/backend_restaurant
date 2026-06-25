@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import User, { IUser } from "../models/User";
 import { AuthRequest } from "../middleware/auth";
+import { invalidateCachedUser } from "../utils/userCache";
 
 /**
  * Generate a signed JWT for authentication
@@ -207,6 +208,8 @@ export const updateProfile = async (
       new: true,
       runValidators: true,
     });
+
+    invalidateCachedUser(req.user!._id.toString());
 
     res.json({
       success: true,
