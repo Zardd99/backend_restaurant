@@ -1,8 +1,11 @@
 import express from "express";
+import { apiLimiter } from "../../middleware/apiLimiter";
 import * as supplierController from "../../controllers/supplierController";
 import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 router.use(authenticate);
 

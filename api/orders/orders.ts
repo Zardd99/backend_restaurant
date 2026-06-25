@@ -1,4 +1,5 @@
 import express from "express";
+import { apiLimiter } from "../../middleware/apiLimiter";
 import {
   getAllOrders,
   getOrderById,
@@ -12,6 +13,8 @@ import { authenticate, requirePermission } from "../../middleware/auth";
 import Order from "../../models/Order";
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 // Debug route — development only, never exposed in production.
 if (process.env.NODE_ENV !== "production") {

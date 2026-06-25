@@ -1,4 +1,5 @@
 import express from "express";
+import { apiLimiter } from "../../middleware/apiLimiter";
 import {
   createReceipt,
   getAllReceipts,
@@ -9,6 +10,8 @@ import {
 import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 router.use(authenticate);
 

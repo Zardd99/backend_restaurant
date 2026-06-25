@@ -8,8 +8,11 @@ import {
 } from "../../controllers/authController";
 import { authenticate } from "../../middleware/auth";
 import rateLimiter from "../../middleware/rateLimter";
+import { apiLimiter } from "../../middleware/apiLimiter";
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 // Strict throttle on credential endpoints to slow brute-force / abuse.
 const authLimiter = rateLimiter({

@@ -1,9 +1,12 @@
 // backend/api/inventory/inventory-router.ts
 import { Router } from "express";
+import { apiLimiter } from "../../middleware/apiLimiter";
 import { InventoryEndpoints } from "../../controllers/inventoryController";
 import { authenticate, requirePermission } from "../../middleware/auth";
 
 const router = Router();
+
+router.use(apiLimiter);
 
 // Every inventory endpoint requires an authenticated user.
 router.use(authenticate);
