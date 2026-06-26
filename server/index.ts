@@ -22,7 +22,9 @@ export function initWebSocketServer(server: http.Server) {
         } else if (
           origin.match(/http:\/\/192\.168\.\d{1,3}\.\d{1,3}:3000$/) ||
           origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok\.io$/) ||
-          origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app$/)
+          origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app$/) ||
+          // Any Vercel deployment of this project (prod + dev/staging previews).
+          origin.match(/^https:\/\/restaurant-mangement-system[a-z0-9-]*\.vercel\.app$/i)
         ) {
           callback(null, true);
         } else {
