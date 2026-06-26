@@ -58,7 +58,7 @@
     "commander": "^15.0.0",
     "concat-map": "^0.0.2",
     "content-disposition": "^1.0.0",
-    "content-type": "^1.0.5",
+    "content-type": "^2.0.0",
     "cookie": "^1.1.1",
     "cookie-signature": "^1.2.2",
     "cors": "^2.8.6",
