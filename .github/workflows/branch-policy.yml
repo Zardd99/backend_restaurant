@@ -1,0 +1,29 @@
+name: Branch Policy
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+permissions:
+  contents: read
+jobs:
+  enforce-merge-routing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate base/head routing
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          echo "PR route: $HEAD -> $BASE"
+          allowed=0
+          case "$BASE" in
+            main)    [ "$HEAD" = "staging" ] && allowed=1 ;;
+            staging) [ "$HEAD" = "dev" ] && allowed=1 ;;
+            dev)     case "$HEAD" in feature/*|bugfix/*) allowed=1 ;; esac ;;
+            *)       allowed=1 ;;
+          esac
+          if [ "$allowed" -ne 1 ]; then
+            echo "::error::Illegal merge route '$HEAD' -> '$BASE'."
+            echo "Allowed: feature/*|bugfix/* -> dev | dev -> staging | staging -> main"
+            exit 1
+          fi
+          echo "Route OK."
