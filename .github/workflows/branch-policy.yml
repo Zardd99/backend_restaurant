@@ -15,15 +15,21 @@ jobs:
         run: |
           echo "PR route: $HEAD -> $BASE"
           allowed=0
-          case "$BASE" in
-            main)    [ "$HEAD" = "staging" ] && allowed=1 ;;
-            staging) [ "$HEAD" = "dev" ] && allowed=1 ;;
-            dev)     case "$HEAD" in feature/*|bugfix/*) allowed=1 ;; esac ;;
-            *)       allowed=1 ;;
+          # Trusted automation may target any branch.
+          case "$HEAD" in
+            dependabot/*) allowed=1 ;;
           esac
           if [ "$allowed" -ne 1 ]; then
+            case "$BASE" in
+              main)    case "$HEAD" in staging|hotfix/*) allowed=1 ;; esac ;;
+              staging) [ "$HEAD" = "dev" ] && allowed=1 ;;
+              dev)     case "$HEAD" in feature/*|bugfix/*) allowed=1 ;; esac ;;
+              *)       allowed=1 ;;
+            esac
+          fi
+          if [ "$allowed" -ne 1 ]; then
             echo "::error::Illegal merge route '$HEAD' -> '$BASE'."
-            echo "Allowed: feature/*|bugfix/* -> dev | dev -> staging | staging -> main"
+            echo "Allowed: feature/*|bugfix/* -> dev | dev -> staging | staging|hotfix/* -> main | dependabot/* -> any"
             exit 1
           fi
           echo "Route OK."
