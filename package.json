@@ -280,7 +280,7 @@
     "path-parse": "^1.0.7",
     "path-to-regexp": "^8.4.2",
     "picocolors": "^1.1.1",
-    "picomatch": "^2.3.1",
+    "picomatch": "^4.0.4",
     "possible-typed-array-names": "^1.1.0",
     "prelude-ls": "^1.2.1",
     "pretty-format": "^3.8.0",
