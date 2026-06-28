@@ -14,7 +14,8 @@ const router = express.Router();
 const transfer = new TransferTableUseCase();
 const merge = new MergeTablesUseCase();
 
-router.use(apiLimiter, authenticate);
+router.use(apiLimiter);
+router.use(authenticate);
 
 router.post(
   "/tables/transfer",
