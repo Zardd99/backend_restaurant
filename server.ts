@@ -201,6 +201,11 @@ import tablesRoutes from "./api/tables/tables-router";
 import notificationRoutes from "./api/notifications/notifications";
 import supportRoutes from "./api/support/support";
 import billingRoutes from "./api/billing/billing";
+import paymentRoutes from "./api/billing/payments";
+import orderEditRoutes from "./api/orders/order-edit";
+import voidCompRoutes from "./api/orders/void-comp";
+import tableOpsRoutes from "./api/tables/table-ops";
+import shiftRoutes from "./api/shifts/shifts";
 import { orderTimeoutService } from "./services/OrderTimeoutService";
 
 // API Endpoint Registration
@@ -221,6 +226,13 @@ app.use(tablesRoutes); // Table occupancy management routes
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/billing", billingRoutes);
+
+// P2 operational features
+app.use("/api/billing", paymentRoutes); // /:id/split/*, /:id/khqr, /:id/pay
+app.use("/api", orderEditRoutes); // /orders/:id/items, /menu/:id/availability
+app.use("/api", voidCompRoutes); // /orders/:id/void, /comp, /audit
+app.use("/api", tableOpsRoutes); // /tables/transfer, /tables/merge
+app.use("/api/shifts", shiftRoutes);
 
 app.get("/", (req, res) => {
   res.json({
