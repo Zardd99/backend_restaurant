@@ -1,7 +1,10 @@
-import { IngredientRepository } from "../../repositories/ingredient-repository";
+import {
+  IngredientRepository,
+  IngredientDeduction,
+} from "../../repositories/ingredient-repository";
 import { Ingredient } from "../../models/ingredient";
 import { Result, ok, err } from "../../shared/result";
-import mongoose from "mongoose";
+import mongoose, { ClientSession } from "mongoose";
 import { IIngredient } from "../../models/Supplier";
 
 export class MongoDBIngredientRepository implements IngredientRepository {
@@ -201,6 +204,68 @@ export class MongoDBIngredientRepository implements IngredientRepository {
           `Failed to find low stock ingredients: ${error instanceof Error ? error.message : "Unknown error"}`,
         ),
       );
+    }
+  }
+
+  async consumeAtomic(
+    deductions: IngredientDeduction[],
+    externalSession?: ClientSession,
+  ): Promise<Result<void>> {
+    const apply = async (session: ClientSession): Promise<void> => {
+      for (const deduction of deductions) {
+        if (deduction.quantity <= 0) {
+          continue;
+        }
+
+        const result = await this.ingredientModel.updateOne(
+          {
+            _id: deduction.ingredientId,
+            isActive: true,
+            currentStock: { $gte: deduction.quantity },
+          },
+          {
+            $inc: { currentStock: -deduction.quantity },
+            $set: { lastConsumed: new Date() },
+          },
+          { session },
+        );
+
+        // 0 modified => not found, inactive, or insufficient stock.
+        // Throwing aborts the transaction and rolls back every prior deduction.
+        if (result.modifiedCount !== 1) {
+          throw new Error(`INSUFFICIENT_STOCK:${deduction.ingredientId}`);
+        }
+      }
+    };
+
+    if (externalSession) {
+      try {
+        await apply(externalSession);
+        return ok(undefined);
+      } catch (error) {
+        return err(
+          error instanceof Error
+            ? error
+            : new Error("Failed to consume ingredients atomically"),
+        );
+      }
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(apply, {
+        readConcern: { level: "snapshot" },
+        writeConcern: { w: "majority" },
+      });
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        error instanceof Error
+          ? error
+          : new Error("Failed to consume ingredients atomically"),
+      );
+    } finally {
+      await session.endSession();
     }
   }
 }
