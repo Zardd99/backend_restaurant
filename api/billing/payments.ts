@@ -23,7 +23,7 @@ router.post(
   requirePermission("billing:read"),
   async (req, res) => {
     try {
-      res.json(await splitBill.evenSplit(req.params.id, Number(req.body.ways)));
+      res.json(await splitBill.evenSplit((req.params.id as string), Number(req.body.ways)));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
@@ -35,7 +35,7 @@ router.post(
   requirePermission("billing:read"),
   async (req, res) => {
     try {
-      res.json(await splitBill.splitByItems(req.params.id, req.body.groups));
+      res.json(await splitBill.splitByItems((req.params.id as string), req.body.groups));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
@@ -47,7 +47,7 @@ router.post(
   requirePermission("billing:pay"),
   async (req, res) => {
     try {
-      res.json(await gateway.generateKHQR(Number(req.body.amount), req.params.id));
+      res.json(await gateway.generateKHQR(Number(req.body.amount), (req.params.id as string)));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
@@ -60,7 +60,7 @@ router.post(
   async (req: AuthRequest, res) => {
     try {
       const result = await processPayment.execute({
-        orderId: req.params.id,
+        orderId: (req.params.id as string),
         amount: Number(req.body.amount),
         method: req.body.method,
         tipAmount:

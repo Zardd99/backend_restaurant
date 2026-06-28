@@ -32,7 +32,7 @@ router.patch(
   requirePermission("order:update"),
   async (req: AuthRequest, res) => {
     try {
-      const updated = await modifyOrder.execute(req.params.id, req.body.edits, {
+      const updated = await modifyOrder.execute((req.params.id as string), req.body.edits, {
         id: String(req.user!._id),
         role: req.user!.role,
       });
@@ -53,14 +53,14 @@ router.patch(
         res.status(400).json({ error: "Invalid item status" });
         return;
       }
-      const order = await Order.findById(req.params.id);
+      const order = await Order.findById((req.params.id as string));
       if (!order) {
         res.status(404).json({ error: "Order not found" });
         return;
       }
       const item = (order.items as unknown as {
         id: (id: string) => { status?: ItemStatus } | null;
-      }).id(req.params.itemId);
+      }).id((req.params.itemId as string));
       if (!item) {
         res.status(404).json({ error: "Order item not found" });
         return;
@@ -86,7 +86,7 @@ router.patch(
   async (req: AuthRequest, res) => {
     try {
       const item = await toggle86.execute(
-        req.params.id,
+        (req.params.id as string),
         Boolean(req.body.available),
         { id: String(req.user!._id), role: req.user!.role },
       );

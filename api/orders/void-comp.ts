@@ -30,7 +30,7 @@ router.post(
         return;
       }
       await voidOrder.execute(
-        req.params.id,
+        (req.params.id as string),
         reason,
         req.body.managerId ?? String(req.user!._id),
       );
@@ -47,7 +47,7 @@ router.post(
   async (req: AuthRequest, res) => {
     try {
       await compOrder.execute(
-        req.params.id,
+        (req.params.id as string),
         String(req.body.reason ?? ""),
         req.body.managerId ?? String(req.user!._id),
       );
