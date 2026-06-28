@@ -198,6 +198,7 @@ import inventoryRoutes from "./api/inventory/inventory-router";
 import promotionRoutes from "./api/promotions/promotions";
 import timeoutRoutes from "./api/timeout/timeout-router";
 import tablesRoutes from "./api/tables/tables-router";
+import tableManagementRoutes from "./api/tables/table_routes";
 import notificationRoutes from "./api/notifications/notifications";
 import supportRoutes from "./api/support/support";
 import billingRoutes from "./api/billing/billing";
@@ -222,7 +223,10 @@ app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/promotions", promotionRoutes);
 app.use(timeoutRoutes); // Timeout management routes
-app.use(tablesRoutes); // Table occupancy management routes
+// Table-model management (auto-assign, seat, bus, join/split, floor map).
+// Mounted before the legacy occupancy router so its explicit paths win.
+app.use("/api/tables", tableManagementRoutes);
+app.use(tablesRoutes); // Legacy order-derived table occupancy routes
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/billing", billingRoutes);

@@ -12,13 +12,20 @@ export type AuditAction =
   | "REFUND"
   | "TOGGLE_86"
   | "OPEN_SHIFT"
-  | "CLOSE_SHIFT";
+  | "CLOSE_SHIFT"
+  | "AUTO_ASSIGN_TABLE"
+  | "SEAT_GUESTS"
+  | "CHECKOUT_TABLE"
+  | "BUS_TABLE"
+  | "JOIN_TABLES"
+  | "SPLIT_TABLES";
 
 export type AuditTargetType =
   | "Order"
   | "OrderItem"
   | "MenuItem"
   | "Table"
+  | "TableReservation"
   | "Shift";
 
 export interface IAuditLog extends Document {
@@ -60,13 +67,26 @@ const auditLogSchema: Schema = new Schema(
         "TOGGLE_86",
         "OPEN_SHIFT",
         "CLOSE_SHIFT",
+        "AUTO_ASSIGN_TABLE",
+        "SEAT_GUESTS",
+        "CHECKOUT_TABLE",
+        "BUS_TABLE",
+        "JOIN_TABLES",
+        "SPLIT_TABLES",
       ],
       required: true,
       index: true,
     },
     targetType: {
       type: String,
-      enum: ["Order", "OrderItem", "MenuItem", "Table", "Shift"],
+      enum: [
+        "Order",
+        "OrderItem",
+        "MenuItem",
+        "Table",
+        "TableReservation",
+        "Shift",
+      ],
       required: true,
     },
     targetId: { type: Schema.Types.ObjectId, required: true, index: true },
