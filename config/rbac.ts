@@ -58,6 +58,11 @@ export const PERMISSIONS = [
   "notification:manage",
   // Users (staff administration)
   "user:manage",
+  // P2 operational features
+  "order:void",
+  "order:comp",
+  "shift:manage",
+  "audit:read",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -94,6 +99,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "review:write",
     "notification:read",
     "notification:manage",
+    "order:void",
+    "order:comp",
+    "shift:manage",
+    "audit:read",
   ],
 
   chef: [
@@ -128,6 +137,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "billing:pay",
     "receipt:read",
     "notification:read",
+    "shift:manage",
   ],
 
   customer: ["menu:read", "category:read", "order:create", "review:write"],

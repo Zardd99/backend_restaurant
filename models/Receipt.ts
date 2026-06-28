@@ -3,7 +3,13 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 export interface IReceipt extends Document {
   order: Types.ObjectId;
   receiptNumber: string;
-  paymentMethod: "cash" | "credit_card" | "debit_card" | "KHQR";
+  paymentMethod:
+    | "cash"
+    | "credit_card"
+    | "debit_card"
+    | "khqr"
+    | "KHQR"
+    | "split";
   paymentStatus: "pending" | "completed" | "failed" | "refunded";
   subtotal: number;
   tax: number;
@@ -25,7 +31,8 @@ const receiptSchema: Schema = new Schema(
     receiptNumber: { type: String, required: true, unique: true },
     paymentMethod: {
       type: String,
-      enum: ["cash", "credit_card", "debit_card", "KHQR"],
+      // "debit_card"/"KHQR" retained transitionally; aligned with Order vocab.
+      enum: ["cash", "credit_card", "debit_card", "khqr", "KHQR", "split"],
       required: true,
     },
     paymentStatus: {
