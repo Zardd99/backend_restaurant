@@ -17,7 +17,8 @@ const router = express.Router();
 const voidOrder = new VoidOrderUseCase();
 const compOrder = new CompOrderUseCase();
 
-router.use(apiLimiter, authenticate);
+router.use(apiLimiter);
+router.use(authenticate);
 
 router.post(
   "/orders/:id/void",

@@ -15,7 +15,8 @@ const router = express.Router();
 const openShift = new OpenShiftUseCase();
 const closeShift = new CloseShiftUseCase();
 
-router.use(apiLimiter, authenticate);
+router.use(apiLimiter);
+router.use(authenticate);
 
 router.get("/current", requirePermission("billing:read"), async (_req, res) => {
   try {

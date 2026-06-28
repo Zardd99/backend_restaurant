@@ -17,7 +17,8 @@ const splitBill = new SplitBillService();
 const gateway = new MockPaymentGateway();
 const processPayment = new ProcessPaymentUseCase(gateway);
 
-router.use(apiLimiter, authenticate);
+router.use(apiLimiter);
+router.use(authenticate);
 
 router.post(
   "/:id/split/even",
