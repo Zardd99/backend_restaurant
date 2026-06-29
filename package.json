@@ -398,7 +398,8 @@
     "seed-ingredients-deps": "ts-node scripts/seed-ingredients-execute.ts",
     "seed-all": "npm run seed-ingredients && npm run seed-ingredients-deps",
     "seed-menu-items": "ts-node scripts/seed-menu-items.ts",
-    "seed-tables": "ts-node scripts/seed-tables.ts"
+    "seed-tables": "ts-node scripts/seed-tables.ts",
+    "seed-inventory-catalog": "ts-node scripts/seed-inventory-catalog.ts"
   },
   "keywords": [],
   "author": "",
