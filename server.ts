@@ -198,9 +198,15 @@ import inventoryRoutes from "./api/inventory/inventory-router";
 import promotionRoutes from "./api/promotions/promotions";
 import timeoutRoutes from "./api/timeout/timeout-router";
 import tablesRoutes from "./api/tables/tables-router";
+import tableManagementRoutes from "./api/tables/table_routes";
 import notificationRoutes from "./api/notifications/notifications";
 import supportRoutes from "./api/support/support";
 import billingRoutes from "./api/billing/billing";
+import paymentRoutes from "./api/billing/payments";
+import orderEditRoutes from "./api/orders/order-edit";
+import voidCompRoutes from "./api/orders/void-comp";
+import tableOpsRoutes from "./api/tables/table-ops";
+import shiftRoutes from "./api/shifts/shifts";
 import { orderTimeoutService } from "./services/OrderTimeoutService";
 
 // API Endpoint Registration
@@ -217,10 +223,20 @@ app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/promotions", promotionRoutes);
 app.use(timeoutRoutes); // Timeout management routes
-app.use(tablesRoutes); // Table occupancy management routes
+// Table-model management (auto-assign, seat, bus, join/split, floor map).
+// Mounted before the legacy occupancy router so its explicit paths win.
+app.use("/api/tables", tableManagementRoutes);
+app.use(tablesRoutes); // Legacy order-derived table occupancy routes
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/billing", billingRoutes);
+
+// P2 operational features
+app.use("/api/billing", paymentRoutes); // /:id/split/*, /:id/khqr, /:id/pay
+app.use("/api", orderEditRoutes); // /orders/:id/items, /menu/:id/availability
+app.use("/api", voidCompRoutes); // /orders/:id/void, /comp, /audit
+app.use("/api", tableOpsRoutes); // /tables/transfer, /tables/merge
+app.use("/api/shifts", shiftRoutes);
 
 app.get("/", (req, res) => {
   res.json({
