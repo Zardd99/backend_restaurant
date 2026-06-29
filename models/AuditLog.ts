@@ -23,7 +23,10 @@ export type AuditAction =
   | "EXPEDITE_KDS_TICKET"
   | "COMPLETE_KDS_ITEM"
   | "RECEIVE_INVENTORY"
-  | "LOG_WASTE";
+  | "LOG_WASTE"
+  | "RECEIVE_PURCHASE_ORDER"
+  | "PREP_INGREDIENT"
+  | "SUBMIT_INVENTORY_AUDIT";
 
 export type AuditTargetType =
   | "Order"
@@ -34,7 +37,10 @@ export type AuditTargetType =
   | "Shift"
   | "KdsTicket"
   | "InventoryBatch"
-  | "WasteLog";
+  | "WasteLog"
+  | "PurchaseOrder"
+  | "Ingredient"
+  | "InventoryAudit";
 
 export interface IAuditLog extends Document {
   timestamp: Date;
@@ -86,6 +92,9 @@ const auditLogSchema: Schema = new Schema(
         "COMPLETE_KDS_ITEM",
         "RECEIVE_INVENTORY",
         "LOG_WASTE",
+        "RECEIVE_PURCHASE_ORDER",
+        "PREP_INGREDIENT",
+        "SUBMIT_INVENTORY_AUDIT",
       ],
       required: true,
       index: true,
@@ -102,6 +111,9 @@ const auditLogSchema: Schema = new Schema(
         "KdsTicket",
         "InventoryBatch",
         "WasteLog",
+        "PurchaseOrder",
+        "Ingredient",
+        "InventoryAudit",
       ],
       required: true,
     },
