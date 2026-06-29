@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import connectDB from "./config/db";
 import { setupDependencies, DependencyContainer } from "./config/dependencies";
 import { orderTimeoutService } from "./services/OrderTimeoutService";
+import { kdsPacingService } from "./services/KdsPacingService";
 import { withRedisLock } from "./utils/redisLock";
 import { Result } from "./shared/result";
 
@@ -58,6 +59,15 @@ async function runOrderTimeoutTick(): Promise<void> {
   });
 }
 
+async function runKdsPacingTick(): Promise<void> {
+  await withRedisLock("job:kds-pacing", LOCK_TTL_MS, async () => {
+    const fired = await kdsPacingService.checkAndFirePacedItems();
+    if (fired > 0) {
+      console.log(`KDS pacing job: fired held items on ${fired} tickets`);
+    }
+  });
+}
+
 function schedule(task: () => Promise<void>): void {
   const timer = setInterval(() => {
     task().catch((error) => {
@@ -106,6 +116,7 @@ async function main(): Promise<void> {
 
   schedule(() => runLowStockTick(inventoryManager));
   schedule(() => runOrderTimeoutTick());
+  schedule(() => runKdsPacingTick());
 
   console.log(
     `Worker started. Scheduled jobs running every ${TICK_MS / 1000}s with Redis locks.`,
