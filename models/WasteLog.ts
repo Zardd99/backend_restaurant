@@ -1,12 +1,18 @@
 import mongoose, { Document, Schema } from "mongoose";
 
-export type WasteReason = "spoilage" | "dropped" | "comp" | "kitchen_error";
+export type WasteReason =
+  | "spoilage"
+  | "dropped"
+  | "comp"
+  | "kitchen_error"
+  | "discrepancy";
 
 export const WASTE_REASONS: WasteReason[] = [
   "spoilage",
   "dropped",
   "comp",
   "kitchen_error",
+  "discrepancy",
 ];
 
 /**

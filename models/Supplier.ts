@@ -16,6 +16,8 @@ export interface ISupplier extends Document {
   };
   suppliedIngredients: ObjectIdType[];
   paymentTerms: string;
+  minimumOrderValue: number;
+  leadTimeDays: number;
   isActive: boolean;
   notes?: string;
 }
@@ -35,6 +37,8 @@ const supplierSchema: Schema = new Schema(
     },
     suppliedIngredients: [{ type: Schema.Types.ObjectId, ref: "Ingredient" }],
     paymentTerms: { type: String, default: "Net 30" },
+    minimumOrderValue: { type: Number, default: 0, min: 0 },
+    leadTimeDays: { type: Number, default: 3, min: 0 },
     isActive: { type: Boolean, default: true },
     notes: { type: String },
   },
@@ -42,6 +46,8 @@ const supplierSchema: Schema = new Schema(
 );
 
 // Ingredient Schema (for inventory tracking)
+export type StorageRequirement = "ambient" | "chilled" | "frozen";
+
 export interface IIngredient extends Document {
   name: string;
   description: string;
@@ -53,6 +59,11 @@ export interface IIngredient extends Document {
   supplier: ObjectIdType;
   category: string;
   shelfLife?: number;
+  // In-house prepped item (e.g. stock, sauce) produced via a Recipe rather than
+  // purchased raw. `recipeId` points at its bill of materials when isPrepped.
+  isPrepped: boolean;
+  recipeId?: ObjectIdType | null;
+  storageRequirement: StorageRequirement;
   isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -70,33 +81,60 @@ const ingredientSchema: Schema = new Schema(
     supplier: { type: Schema.Types.ObjectId, ref: "Supplier", required: true },
     category: { type: String, required: true },
     shelfLife: { type: Number },
+    isPrepped: { type: Boolean, default: false, index: true },
+    recipeId: { type: Schema.Types.ObjectId, ref: "Recipe", default: null },
+    storageRequirement: {
+      type: String,
+      enum: ["ambient", "chilled", "frozen"],
+      default: "ambient",
+    },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true },
 );
 
 // Purchase Order Schema
+//
+// `receivedQuantity` per item + the draft/partially_received/received statuses
+// support the IMS goods-receiving workflow (see
+// services/inventory_management_service). `poNumber` is an alias of the legacy
+// `orderNumber` so new code can use the spec field name with no data migration.
+export type PurchaseOrderStatus =
+  | "draft"
+  | "pending"
+  | "approved"
+  | "ordered"
+  | "partially_received"
+  | "received"
+  | "delivered"
+  | "cancelled";
+
+export interface IPurchaseOrderItem {
+  ingredient: Types.ObjectId;
+  quantity: number;
+  receivedQuantity: number;
+  unitCost: number;
+  totalCost: number;
+}
+
 export interface IPurchaseOrder extends Document {
   orderNumber: string;
+  poNumber: string; // alias of orderNumber
   supplier: Types.ObjectId;
-  items: {
-    ingredient: Types.ObjectId;
-    quantity: number;
-    unitCost: number;
-    totalCost: number;
-  }[];
+  items: IPurchaseOrderItem[];
   totalAmount: number;
   orderDate: Date;
   expectedDelivery: Date;
   actualDelivery?: Date;
-  status: "pending" | "approved" | "ordered" | "delivered" | "cancelled";
+  receivedAt?: Date;
+  status: PurchaseOrderStatus;
   notes?: string;
   createdBy: Types.ObjectId; // Reference to User who created the order
 }
 
 const purchaseOrderSchema: Schema = new Schema(
   {
-    orderNumber: { type: String, required: true },
+    orderNumber: { type: String, required: true, alias: "poNumber" },
     supplier: { type: Schema.Types.ObjectId, ref: "Supplier", required: true },
     items: [
       {
@@ -105,18 +143,29 @@ const purchaseOrderSchema: Schema = new Schema(
           ref: "Ingredient",
           required: true,
         },
-        quantity: { type: Number, required: true },
-        unitCost: { type: Number, required: true },
-        totalCost: { type: Number, required: true },
+        quantity: { type: Number, required: true, min: 0 },
+        receivedQuantity: { type: Number, default: 0, min: 0 },
+        unitCost: { type: Number, required: true, min: 0 },
+        totalCost: { type: Number, required: true, min: 0 },
       },
     ],
     totalAmount: { type: Number, required: true },
     orderDate: { type: Date, default: Date.now },
     expectedDelivery: { type: Date, required: true },
     actualDelivery: { type: Date },
+    receivedAt: { type: Date },
     status: {
       type: String,
-      enum: ["pending", "approved", "ordered", "delivered", "cancelled"],
+      enum: [
+        "draft",
+        "pending",
+        "approved",
+        "ordered",
+        "partially_received",
+        "received",
+        "delivered",
+        "cancelled",
+      ],
       default: "pending",
     },
     notes: { type: String },
