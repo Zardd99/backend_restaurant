@@ -63,8 +63,10 @@ router.get("/audit", requirePermission("audit:read"), async (req, res) => {
   try {
     const { targetId, action, limit } = req.query;
     const query: Record<string, unknown> = {};
-    if (targetId) query.targetId = targetId;
-    if (action) query.action = action;
+    // Coerce to primitive strings so a crafted query (e.g. ?targetId[$ne]=)
+    // can't smuggle operator objects into the Mongo filter.
+    if (targetId) query.targetId = String(targetId);
+    if (action) query.action = String(action);
     const docs = await AuditLog.find(query)
       .sort({ timestamp: -1 })
       .limit(Math.min(Number(limit) || 100, 500))

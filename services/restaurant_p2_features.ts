@@ -27,7 +27,11 @@ function lineTotal(item: IOrderItem): number {
 }
 
 async function assertManager(managerId: string): Promise<string> {
-  const manager = await User.findById(managerId).select("role").lean();
+  const id = String(managerId);
+  if (!mongoose.isValidObjectId(id)) {
+    throw new Error("Manager authorization required");
+  }
+  const manager = await User.findById(id).select("role").lean();
   const role = (manager as { role?: string } | null)?.role;
   if (!role || !["manager", "admin"].includes(role)) {
     throw new Error("Manager authorization required");
@@ -247,7 +251,11 @@ export class ModifyOrderUseCase {
         for (const edit of edits) {
           if (edit.op === "add") {
             if (edit.quantity <= 0) throw new Error("Quantity must be positive");
-            const menuItem = await MenuItem.findById(edit.menuItemId).session(session).lean();
+            const menuItemId = String(edit.menuItemId);
+            if (!mongoose.isValidObjectId(menuItemId)) {
+              throw new Error("Menu item not found");
+            }
+            const menuItem = await MenuItem.findById(menuItemId).session(session).lean();
             if (!menuItem) throw new Error("Menu item not found");
             if ((menuItem as { availability?: boolean }).availability === false) {
               throw new Error(`${(menuItem as { name?: string }).name ?? "Item"} is 86'd`);
