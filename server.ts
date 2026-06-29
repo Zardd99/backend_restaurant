@@ -211,6 +211,7 @@ import voidCompRoutes from "./api/orders/void-comp";
 import tableOpsRoutes from "./api/tables/table-ops";
 import shiftRoutes from "./api/shifts/shifts";
 import enterpriseOperationsRoutes from "./api/routes/enterprise_operations_routes";
+import inventoryManagementRoutes from "./api/routes/inventory_routes";
 import { orderTimeoutService } from "./services/OrderTimeoutService";
 
 // API Endpoint Registration
@@ -225,6 +226,8 @@ app.use("/api/receipts", receiptRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
+// IMS goods-receiving, prep runs, stocktake, variance report (distinct subpaths).
+app.use("/api/inventory", inventoryManagementRoutes);
 app.use("/api/promotions", promotionRoutes);
 app.use(timeoutRoutes); // Timeout management routes
 // Table-model management (auto-assign, seat, bus, join/split, floor map).
