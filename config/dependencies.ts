@@ -7,6 +7,7 @@ import { NodemailerEmailService } from "../infrastructure/services/nodemailer-em
 import { MockLowStockNotificationRepository } from "../infrastructure/repositories/mock-low-stock-notification-repository";
 import { Ingredient } from "../models/Supplier";
 import MenuItemModel from "../models/MenuItem";
+import { KdsPacingService } from "../services/KdsPacingService";
 
 export interface AlertConfig {
   recipients: Array<{ email: string; name?: string }>;
@@ -149,6 +150,9 @@ export function setupDependencies(): DependencyContainer {
   );
 
   container.register("InventoryManager", inventoryManager);
+
+  // KDS pacing engine — resolved by the order.created event subscriber.
+  container.register("KdsPacingService", new KdsPacingService());
 
   console.log("Application dependency graph initialized successfully");
   return container;
