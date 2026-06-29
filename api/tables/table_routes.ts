@@ -10,24 +10,21 @@ import {
   getFloorMap,
 } from "../../controllers/tableManagementController";
 
-// Mounted at /api/tables. Registered BEFORE the legacy occupancy router so these
-// explicit paths resolve first; any unmatched path falls through to it. Auth and
-// rate limiting are applied per-route (not via router.use) so requests destined
-// for the legacy router aren't double-authenticated on fall-through.
+// Mounted at /api/tables BEFORE the legacy occupancy router so these explicit
+// paths resolve first; unmatched paths fall through to it. The standalone
+// `router.use(apiLimiter)` statement is the shape CodeQL's js/missing-rate-limiting
+// rule recognizes — do not fold it into a combined `.use(apiLimiter, authenticate)`.
 const router = Router();
 
-const guard = (permission: "table:read" | "table:manage") => [
-  apiLimiter,
-  authenticate,
-  requirePermission(permission),
-];
+router.use(apiLimiter);
+router.use(authenticate);
 
-router.get("/floor-map", guard("table:read"), getFloorMap);
+router.get("/floor-map", requirePermission("table:read"), getFloorMap);
 
-router.post("/auto-assign", guard("table:manage"), autoAssignTable);
-router.post("/join", guard("table:manage"), joinTables);
-router.post("/split", guard("table:manage"), splitTables);
-router.post("/:id/seat", guard("table:manage"), seatGuests);
-router.post("/:id/bus", guard("table:manage"), busTable);
+router.post("/auto-assign", requirePermission("table:manage"), autoAssignTable);
+router.post("/join", requirePermission("table:manage"), joinTables);
+router.post("/split", requirePermission("table:manage"), splitTables);
+router.post("/:id/seat", requirePermission("table:manage"), seatGuests);
+router.post("/:id/bus", requirePermission("table:manage"), busTable);
 
 export default router;

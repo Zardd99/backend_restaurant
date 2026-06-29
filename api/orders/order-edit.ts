@@ -25,7 +25,8 @@ const ALLOWED_ITEM_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
   served: [],
 };
 
-router.use(apiLimiter, authenticate);
+router.use(apiLimiter);
+router.use(authenticate);
 
 router.patch(
   "/orders/:id/items",
