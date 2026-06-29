@@ -63,6 +63,12 @@ export const PERMISSIONS = [
   "order:comp",
   "shift:manage",
   "audit:read",
+  // P3 enterprise operations
+  "kds:read",
+  "kds:manage",
+  "inventory:waste",
+  "analytics:read",
+  "sync:write",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -103,6 +109,11 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order:comp",
     "shift:manage",
     "audit:read",
+    "kds:read",
+    "kds:manage",
+    "inventory:waste",
+    "analytics:read",
+    "sync:write",
   ],
 
   chef: [
@@ -112,6 +123,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order:read",
     "order:status",
     "notification:read",
+    "kds:read",
+    "kds:manage",
+    "inventory:waste",
   ],
 
   waiter: [
@@ -127,6 +141,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "table:read",
     "table:manage",
     "notification:read",
+    "kds:read",
+    "sync:write",
   ],
 
   cashier: [
