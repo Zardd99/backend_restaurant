@@ -17,7 +17,7 @@ export const getNotifications = async (
     );
     const skip = (page - 1) * limit;
 
-    const validTypes: NotificationType[] = ["order_created", "order_preparing", "order_ready", "order_served"];
+    const validTypes: NotificationType[] = ["order_created", "order_preparing", "order_ready", "order_served", "birthday_today"];
     const typeParam = req.query.type as string | undefined;
     const filter = typeParam && (validTypes as string[]).includes(typeParam)
       ? { type: typeParam as NotificationType }

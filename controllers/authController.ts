@@ -188,12 +188,39 @@ export const updateProfile = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { name, phone } = req.body;
+    const { name, phone, birthdate, showBirthdayToOthers } = req.body;
 
     // Build a partial update object from provided fields only
-    const updateData: { name?: string; phone?: string } = {};
+    const updateData: {
+      name?: string;
+      phone?: string;
+      birthdate?: Date | null;
+      showBirthdayToOthers?: boolean;
+    } = {};
     if (name !== undefined) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
+
+    // birthdate may be cleared (null/"") or set to a valid past date.
+    if (birthdate !== undefined) {
+      if (birthdate === null || birthdate === "") {
+        updateData.birthdate = null;
+      } else {
+        const parsed = new Date(birthdate);
+        if (Number.isNaN(parsed.getTime())) {
+          res.status(400).json({ message: "Invalid birthdate" });
+          return;
+        }
+        if (parsed.getTime() > Date.now()) {
+          res.status(400).json({ message: "Birthdate cannot be in the future" });
+          return;
+        }
+        updateData.birthdate = parsed;
+      }
+    }
+
+    if (showBirthdayToOthers !== undefined) {
+      updateData.showBirthdayToOthers = Boolean(showBirthdayToOthers);
+    }
 
     // Reject requests with no valid update fields
     if (Object.keys(updateData).length === 0) {
