@@ -3,6 +3,7 @@ import { apiLimiter } from "../../middleware/apiLimiter";
 import { authenticate, requirePermission } from "../../middleware/auth";
 import {
   getNotifications,
+  getUnreadCount,
   markAllRead,
   deleteAllNotifications,
 } from "../../controllers/notificationController";
@@ -14,6 +15,11 @@ router.use(apiLimiter);
 router.use(authenticate);
 
 router.get("/", requirePermission("notification:read"), getNotifications);
+router.get(
+  "/unread-count",
+  requirePermission("notification:read"),
+  getUnreadCount,
+);
 router.patch("/read", requirePermission("notification:read"), markAllRead);
 router.delete(
   "/",
