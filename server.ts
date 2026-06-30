@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import { initWebSocketServer } from "./server/index";
 import connectDB from "./config/db";
 import rateLimiter from "./middleware/rateLimter";
+import { mongoSanitize } from "./middleware/mongoSanitize";
 import { setupDependencies, DependencyContainer } from "./config/dependencies";
 
 /**
@@ -119,6 +120,8 @@ const corsOptions: cors.CorsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+// Strip Mongo operator keys ($, dotted) from all inputs before any handler runs.
+app.use(mongoSanitize);
 // Global throttle — bounded per IP across all REST endpoints.
 app.use(rateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 2000 }));
 
@@ -207,6 +210,8 @@ import orderEditRoutes from "./api/orders/order-edit";
 import voidCompRoutes from "./api/orders/void-comp";
 import tableOpsRoutes from "./api/tables/table-ops";
 import shiftRoutes from "./api/shifts/shifts";
+import enterpriseOperationsRoutes from "./api/routes/enterprise_operations_routes";
+import inventoryManagementRoutes from "./api/routes/inventory_routes";
 import { orderTimeoutService } from "./services/OrderTimeoutService";
 
 // API Endpoint Registration
@@ -221,6 +226,8 @@ app.use("/api/receipts", receiptRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
+// IMS goods-receiving, prep runs, stocktake, variance report (distinct subpaths).
+app.use("/api/inventory", inventoryManagementRoutes);
 app.use("/api/promotions", promotionRoutes);
 app.use(timeoutRoutes); // Timeout management routes
 // Table-model management (auto-assign, seat, bus, join/split, floor map).
@@ -237,6 +244,7 @@ app.use("/api", orderEditRoutes); // /orders/:id/items, /menu/:id/availability
 app.use("/api", voidCompRoutes); // /orders/:id/void, /comp, /audit
 app.use("/api", tableOpsRoutes); // /tables/transfer, /tables/merge
 app.use("/api/shifts", shiftRoutes);
+app.use("/api/enterprise", enterpriseOperationsRoutes); // KDS, FIFO waste/COGS, menu engineering, offline sync
 
 app.get("/", (req, res) => {
   res.json({

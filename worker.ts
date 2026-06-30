@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import connectDB from "./config/db";
 import { setupDependencies, DependencyContainer } from "./config/dependencies";
 import { orderTimeoutService } from "./services/OrderTimeoutService";
+import { kdsPacingService } from "./services/KdsPacingService";
 import { BirthdayReminderService } from "./services/BirthdayReminderService";
 import { EmailService } from "./services/email-service";
 import { withRedisLock } from "./utils/redisLock";
@@ -64,6 +65,15 @@ async function runOrderTimeoutTick(): Promise<void> {
       console.log(
         `Order timeout job: cancelled ${cancelled} orders, failed ${failedSteps} steps`,
       );
+    }
+  });
+}
+
+async function runKdsPacingTick(): Promise<void> {
+  await withRedisLock("job:kds-pacing", LOCK_TTL_MS, async () => {
+    const fired = await kdsPacingService.checkAndFirePacedItems();
+    if (fired > 0) {
+      console.log(`KDS pacing job: fired held items on ${fired} tickets`);
     }
   });
 }
@@ -152,6 +162,7 @@ async function main(): Promise<void> {
 
   schedule(() => runLowStockTick(inventoryManager));
   schedule(() => runOrderTimeoutTick());
+  schedule(() => runKdsPacingTick());
   schedule(() => runBirthdayReminderTick(birthdayService));
 
   console.log(

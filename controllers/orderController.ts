@@ -8,6 +8,10 @@ import { PromotionService } from "../services/PromotionService";
 import { tableOccupancyService } from "../services/TableOccupancyService";
 import { AuthRequest } from "../middleware/auth";
 import { Server as SocketServer } from "socket.io";
+import {
+  orderEventEmitter,
+  ORDER_CREATED,
+} from "../infrastructure/events/order-events";
 
 // ---------------------------------------------------------------------------
 // Notification helpers
@@ -249,6 +253,14 @@ export const createOrder = async (
 
     const order: IOrder = new Order(orderData);
     const savedOrder = await order.save();
+
+    // The write has committed. Emit asynchronously so KDS ticket paving runs
+    // off the response path; if the save above had thrown we'd be in catch and
+    // this would never fire — no orphan ticket is ever paved.
+    orderEventEmitter.emit(ORDER_CREATED, {
+      orderId: savedOrder._id.toString(),
+      items: savedOrder.items,
+    });
 
     await savedOrder.populate([
       // { path: "customer", select: "name email" },
