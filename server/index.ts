@@ -1,6 +1,37 @@
 import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { Redis } from "ioredis";
 import jwt from "jsonwebtoken";
 import http from "http";
+
+/**
+ * Attaches the Redis adapter when UPSTASH_REDIS_URL (the rediss:// TCP endpoint)
+ * is configured, so real-time events fan out across multiple backend instances
+ * and can be injected from the standalone worker via @socket.io/redis-emitter.
+ * Falls back to the single-instance in-memory adapter when unset (local dev).
+ */
+function attachRedisAdapter(io: Server): void {
+  const url = process.env.UPSTASH_REDIS_URL;
+  if (!url) return;
+
+  try {
+    const pubClient = new Redis(url, { lazyConnect: false });
+    const subClient = pubClient.duplicate();
+    pubClient.on("error", (err) =>
+      console.error("Socket.io Redis pub client error:", err.message),
+    );
+    subClient.on("error", (err) =>
+      console.error("Socket.io Redis sub client error:", err.message),
+    );
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log("Socket.io Redis adapter attached (multi-instance fan-out).");
+  } catch (error) {
+    console.error(
+      "Failed to attach Socket.io Redis adapter; falling back to in-memory:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
 
 export function initWebSocketServer(server: http.Server) {
   const io = new Server(server, {
@@ -35,6 +66,8 @@ export function initWebSocketServer(server: http.Server) {
       credentials: true, // This is important for including cookies/auth headers
     },
   });
+
+  attachRedisAdapter(io);
 
   // Rest of your Socket.IO event handlers remain the same
   io.on("connection", (socket) => {
