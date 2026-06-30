@@ -17,7 +17,7 @@ export const getNotifications = async (
     );
     const skip = (page - 1) * limit;
 
-    const validTypes: NotificationType[] = ["order_created", "order_preparing", "order_ready", "order_served"];
+    const validTypes: NotificationType[] = ["order_created", "order_preparing", "order_ready", "order_served", "birthday_today"];
     const typeParam = req.query.type as string | undefined;
     const filter = typeParam && (validTypes as string[]).includes(typeParam)
       ? { type: typeParam as NotificationType }
@@ -35,6 +35,18 @@ export const getNotifications = async (
       totalPages: Math.ceil(total / limit),
       limit,
     });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+export const getUnreadCount = async (
+  _req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const count = await Notification.countDocuments({ read: false });
+    res.json({ count });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }

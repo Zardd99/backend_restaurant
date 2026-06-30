@@ -4,7 +4,12 @@ import mongoose from "mongoose";
 import connectDB from "./config/db";
 import { setupDependencies, DependencyContainer } from "./config/dependencies";
 import { orderTimeoutService } from "./services/OrderTimeoutService";
+import { kdsPacingService } from "./services/KdsPacingService";
+import { BirthdayReminderService } from "./services/BirthdayReminderService";
+import { EmailService } from "./services/email-service";
 import { withRedisLock } from "./utils/redisLock";
+import { redis } from "./config/redis";
+import { emitSocketEvent } from "./utils/socketEmitter";
 import { Result } from "./shared/result";
 
 dotenv.config();
@@ -32,6 +37,12 @@ interface InventoryManagerRunner {
 const TICK_MS = 60_000;
 const LOCK_TTL_MS = TICK_MS - 5_000;
 
+// Hour of day (local time, 0-23) at which the daily birthday sweep fires.
+const BIRTHDAY_HOUR = parseInt(process.env.BIRTHDAY_REMINDER_HOUR || "8", 10);
+// Once-per-day claim TTL — long enough to outlast the fire window, short
+// enough that the next calendar day always gets a fresh claim.
+const BIRTHDAY_CLAIM_TTL_SECONDS = 23 * 60 * 60;
+
 const timers: NodeJS.Timeout[] = [];
 let shuttingDown = false;
 
@@ -53,6 +64,49 @@ async function runOrderTimeoutTick(): Promise<void> {
     if (cancelled > 0 || failedSteps > 0) {
       console.log(
         `Order timeout job: cancelled ${cancelled} orders, failed ${failedSteps} steps`,
+      );
+    }
+  });
+}
+
+async function runKdsPacingTick(): Promise<void> {
+  await withRedisLock("job:kds-pacing", LOCK_TTL_MS, async () => {
+    const fired = await kdsPacingService.checkAndFirePacedItems();
+    if (fired > 0) {
+      console.log(`KDS pacing job: fired held items on ${fired} tickets`);
+    }
+  });
+}
+
+async function runBirthdayReminderTick(
+  birthdayService: BirthdayReminderService,
+): Promise<void> {
+  const now = new Date();
+  if (now.getHours() !== BIRTHDAY_HOUR) return;
+
+  await withRedisLock("job:birthday-reminders", LOCK_TTL_MS, async () => {
+    // Claim today's run exactly once across all replicas and ticks within the
+    // fire window. Local date string keeps the claim aligned to the calendar.
+    const dateKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+    const claim = await redis.set(
+      `job:birthday-reminders:sent:${dateKey}`,
+      "1",
+      { nx: true, ex: BIRTHDAY_CLAIM_TTL_SECONDS },
+    );
+    if (claim !== "OK") return;
+
+    const result = await birthdayService.sendBirthdayReminders(now);
+    if (result.celebrants > 0) {
+      // Push live toasts to connected clients via the Redis socket emitter.
+      // Reuses the generic order:notification channel the frontend subscribes
+      // to; a no-op when UPSTASH_REDIS_URL is unset.
+      for (const notification of result.notifications) {
+        emitSocketEvent("order:notification", notification);
+      }
+      console.log(
+        `Birthday reminder job: ${result.celebrants} celebrant(s), ` +
+          `${result.notificationsCreated} notification(s), ` +
+          `emailed ${result.recipients} recipient(s) (sent=${result.emailsSent})`,
       );
     }
   });
@@ -103,9 +157,13 @@ async function main(): Promise<void> {
   const inventoryManager = container.resolve(
     "InventoryManager",
   ) as InventoryManagerRunner;
+  const emailService = container.resolve<EmailService>("EmailService");
+  const birthdayService = new BirthdayReminderService(emailService);
 
   schedule(() => runLowStockTick(inventoryManager));
   schedule(() => runOrderTimeoutTick());
+  schedule(() => runKdsPacingTick());
+  schedule(() => runBirthdayReminderTick(birthdayService));
 
   console.log(
     `Worker started. Scheduled jobs running every ${TICK_MS / 1000}s with Redis locks.`,

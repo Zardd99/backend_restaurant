@@ -696,7 +696,8 @@ export class InventoryAuditQueryService {
   }
 
   async listAudits(limit = 50): Promise<AuditSummary[]> {
-    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 200) : 50;
+    const safeLimit =
+      Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 200) : 50;
     const audits = await InventoryAudit.find()
       .sort({ auditDate: -1 })
       .limit(safeLimit)

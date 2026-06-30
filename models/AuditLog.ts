@@ -18,7 +18,15 @@ export type AuditAction =
   | "CHECKOUT_TABLE"
   | "BUS_TABLE"
   | "JOIN_TABLES"
-  | "SPLIT_TABLES";
+  | "SPLIT_TABLES"
+  | "PAVE_KDS_TICKET"
+  | "EXPEDITE_KDS_TICKET"
+  | "COMPLETE_KDS_ITEM"
+  | "RECEIVE_INVENTORY"
+  | "LOG_WASTE"
+  | "RECEIVE_PURCHASE_ORDER"
+  | "PREP_INGREDIENT"
+  | "SUBMIT_INVENTORY_AUDIT";
 
 export type AuditTargetType =
   | "Order"
@@ -26,7 +34,13 @@ export type AuditTargetType =
   | "MenuItem"
   | "Table"
   | "TableReservation"
-  | "Shift";
+  | "Shift"
+  | "KdsTicket"
+  | "InventoryBatch"
+  | "WasteLog"
+  | "PurchaseOrder"
+  | "Ingredient"
+  | "InventoryAudit";
 
 export interface IAuditLog extends Document {
   timestamp: Date;
@@ -73,6 +87,14 @@ const auditLogSchema: Schema = new Schema(
         "BUS_TABLE",
         "JOIN_TABLES",
         "SPLIT_TABLES",
+        "PAVE_KDS_TICKET",
+        "EXPEDITE_KDS_TICKET",
+        "COMPLETE_KDS_ITEM",
+        "RECEIVE_INVENTORY",
+        "LOG_WASTE",
+        "RECEIVE_PURCHASE_ORDER",
+        "PREP_INGREDIENT",
+        "SUBMIT_INVENTORY_AUDIT",
       ],
       required: true,
       index: true,
@@ -86,6 +108,12 @@ const auditLogSchema: Schema = new Schema(
         "Table",
         "TableReservation",
         "Shift",
+        "KdsTicket",
+        "InventoryBatch",
+        "WasteLog",
+        "PurchaseOrder",
+        "Ingredient",
+        "InventoryAudit",
       ],
       required: true,
     },

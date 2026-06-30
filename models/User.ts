@@ -9,6 +9,8 @@ export interface IUser extends Document {
   password: string;
   role: "admin" | "manager" | "chef" | "waiter" | "cashier" | "customer";
   phone?: string;
+  birthdate?: Date | null;
+  showBirthdayToOthers: boolean;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -50,6 +52,21 @@ const userSchema: Schema = new Schema(
     phone: {
       type: String,
       match: [/^[0-9]{10,15}$/, "Please enter a valid phone number"],
+    },
+    birthdate: {
+      type: Date,
+      default: null,
+      validate: {
+        validator: function (value: Date | null | undefined): boolean {
+          if (value === null || value === undefined) return true;
+          return value.getTime() <= Date.now();
+        },
+        message: "Birthdate cannot be in the future",
+      },
+    },
+    showBirthdayToOthers: {
+      type: Boolean,
+      default: true,
     },
     isActive: {
       type: Boolean,
