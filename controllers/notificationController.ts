@@ -40,6 +40,18 @@ export const getNotifications = async (
   }
 };
 
+export const getUnreadCount = async (
+  _req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const count = await Notification.countDocuments({ read: false });
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
 export const markAllRead = async (
   _req: AuthRequest,
   res: Response,
