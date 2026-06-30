@@ -7,6 +7,8 @@
     "lib": "lib"
   },
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
+    "@socket.io/redis-emitter": "^5.1.0",
     "@upstash/ratelimit": "^2.0.8",
     "accepts": "^2.0.0",
     "acorn": "^8.17.0",
@@ -161,6 +163,7 @@
     "inflight": "^1.0.6",
     "inherits": "^2.0.4",
     "internal-slot": "^1.1.0",
+    "ioredis": "^5.11.1",
     "ip-address": "^10.0.1",
     "ipaddr.js": "^2.4.0",
     "is-array-buffer": "^3.0.5",
