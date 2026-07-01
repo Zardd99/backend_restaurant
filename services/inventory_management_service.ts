@@ -623,8 +623,116 @@ export class InventoryVarianceReportService {
   }
 }
 
+// ---------------------------------------------------------------------------
+// D. Audit lifecycle: create draft, count sheet, history
+// ---------------------------------------------------------------------------
+
+export interface CreateAuditDraftResult {
+  auditId: string;
+  status: string;
+  auditDate: Date;
+}
+
+export class CreateAuditDraftUseCase {
+  async execute(actor: Actor): Promise<CreateAuditDraftResult> {
+    // A draft is an empty placeholder; the meaningful, immutable AuditLog entry
+    // is written by SubmitInventoryAuditUseCase when the reconciliation lands.
+    const audit = await InventoryAudit.create({
+      auditedBy: actor.id,
+      auditDate: new Date(),
+      status: "draft",
+      items: [],
+    });
+
+    return {
+      auditId: String(audit._id),
+      status: audit.status,
+      auditDate: audit.auditDate,
+    };
+  }
+}
+
+export interface AuditSheetRow {
+  ingredientId: string;
+  name: string;
+  unit: string;
+  category: string;
+  theoreticalStock: number;
+  costPerUnit: number;
+  isPrepped: boolean;
+  storageRequirement: string;
+}
+
+export interface AuditSummary {
+  auditId: string;
+  auditDate: Date;
+  auditedBy: string;
+  status: string;
+  itemCount: number;
+  totalVarianceCost: number;
+}
+
+export class InventoryAuditQueryService {
+  /**
+   * The count sheet the tablet walks the kitchen with: every active ingredient
+   * plus its current (theoretical) stock to be counted against.
+   */
+  async getCountSheet(): Promise<AuditSheetRow[]> {
+    const ingredients = await Ingredient.find({ isActive: true })
+      .select("name unit category currentStock costPerUnit isPrepped storageRequirement")
+      .sort({ category: 1, name: 1 })
+      .lean();
+
+    return ingredients.map((ingredient) => ({
+      ingredientId: String(ingredient._id),
+      name: ingredient.name,
+      unit: ingredient.unit,
+      category: ingredient.category,
+      theoreticalStock: ingredient.currentStock ?? 0,
+      costPerUnit: ingredient.costPerUnit ?? 0,
+      isPrepped: Boolean(ingredient.isPrepped),
+      storageRequirement: ingredient.storageRequirement,
+    }));
+  }
+
+  async listAudits(limit = 50): Promise<AuditSummary[]> {
+    const safeLimit =
+      Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 200) : 50;
+    const audits = await InventoryAudit.find()
+      .sort({ auditDate: -1 })
+      .limit(safeLimit)
+      .lean();
+
+    return audits.map((audit) => ({
+      auditId: String(audit._id),
+      auditDate: audit.auditDate,
+      auditedBy: audit.auditedBy,
+      status: audit.status,
+      itemCount: (audit.items ?? []).length,
+      totalVarianceCost: round2(
+        (audit.items ?? []).reduce(
+          (sum, item) => sum + (item.varianceCost ?? 0),
+          0,
+        ),
+      ),
+    }));
+  }
+
+  async getAudit(auditId: string) {
+    const safeId = String(auditId);
+    if (!Types.ObjectId.isValid(safeId)) {
+      throw new Error("Invalid auditId");
+    }
+    const audit = await InventoryAudit.findById(safeId).lean();
+    if (!audit) throw new Error("Inventory audit not found");
+    return audit;
+  }
+}
+
 export const receivePurchaseOrderUseCase = new ReceivePurchaseOrderUseCase();
 export const prepIngredientUseCase = new PrepIngredientUseCase();
 export const submitInventoryAuditUseCase = new SubmitInventoryAuditUseCase();
+export const createAuditDraftUseCase = new CreateAuditDraftUseCase();
+export const inventoryAuditQueryService = new InventoryAuditQueryService();
 export const inventoryVarianceReportService =
   new InventoryVarianceReportService();
