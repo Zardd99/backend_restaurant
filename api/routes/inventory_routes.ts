@@ -11,6 +11,8 @@ import {
   receivePurchaseOrderUseCase,
   prepIngredientUseCase,
   submitInventoryAuditUseCase,
+  createAuditDraftUseCase,
+  inventoryAuditQueryService,
   inventoryVarianceReportService,
 } from "../../services/inventory_management_service";
 
@@ -91,6 +93,62 @@ router.post(
       res.status(200).json(result);
     } catch (error) {
       fail(res, error);
+    }
+  },
+);
+
+router.post(
+  "/audit/draft",
+  writeLimiter,
+  requirePermission("inventory:write"),
+  async (req: AuthRequest, res) => {
+    try {
+      const result = await createAuditDraftUseCase.execute(actorOf(req));
+      res.status(201).json(result);
+    } catch (error) {
+      fail(res, error);
+    }
+  },
+);
+
+router.get(
+  "/audit/sheet",
+  requirePermission("inventory:read"),
+  async (_req: AuthRequest, res) => {
+    try {
+      const rows = await inventoryAuditQueryService.getCountSheet();
+      res.json({ items: rows });
+    } catch (error) {
+      fail(res, error, 500);
+    }
+  },
+);
+
+router.get(
+  "/audits",
+  requirePermission("inventory:read"),
+  async (req: AuthRequest, res) => {
+    try {
+      const limit = req.query.limit ? Number(req.query.limit) : undefined;
+      const audits = await inventoryAuditQueryService.listAudits(limit);
+      res.json({ audits });
+    } catch (error) {
+      fail(res, error, 500);
+    }
+  },
+);
+
+router.get(
+  "/audits/:id",
+  requirePermission("inventory:read"),
+  async (req: AuthRequest, res) => {
+    try {
+      const audit = await inventoryAuditQueryService.getAudit(
+        String(req.params.id),
+      );
+      res.json(audit);
+    } catch (error) {
+      fail(res, error, 404);
     }
   },
 );
