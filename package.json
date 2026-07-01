@@ -170,7 +170,7 @@
     "is-arrayish": "^0.3.2",
     "is-async-function": "^2.1.1",
     "is-bigint": "^1.1.0",
-    "is-binary-path": "^2.1.0",
+    "is-binary-path": "^3.0.0",
     "is-boolean-object": "^1.2.2",
     "is-bun-module": "^2.0.0",
     "is-callable": "^1.2.7",
