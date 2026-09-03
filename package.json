@@ -294,7 +294,7 @@
     "queue-microtask": "^1.2.3",
     "range-parser": "^1.2.1",
     "raw-body": "^3.0.2",
-    "readdirp": "^3.6.0",
+    "readdirp": "^5.0.0",
     "reflect.getprototypeof": "^1.0.10",
     "regexp.prototype.flags": "^1.5.4",
     "resolve": "^1.22.10",
