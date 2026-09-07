@@ -1,0 +1,1 @@
+{"version":3,"file":"apiLimiter.js","sourceRoot":"","sources":["../../middleware/apiLimiter.ts"],"names":[],"mappings":";;;;;;AAAA,8DAAuC;AAE1B,QAAA,UAAU,GAAG,IAAA,oBAAW,EAAC;IACpC,QAAQ,EAAE,EAAE,GAAG,IAAI;IACnB,WAAW,EAAE,GAAG;IAChB,OAAO,EAAE,4DAA4D;CACtE,CAAC,CAAC"}

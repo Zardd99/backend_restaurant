@@ -4,9 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const apiLimiter_1 = require("../../middleware/apiLimiter");
 const reviewController_1 = require("../../controllers/reviewController");
 const auth_1 = require("../../middleware/auth");
 const router = express_1.default.Router();
+router.use(apiLimiter_1.apiLimiter);
 router.get("/", reviewController_1.getAllReviews);
 router.get("/paginated", reviewController_1.getReviewsWithPagination);
 router.get("/rating-range", reviewController_1.getReviewsByRatingRange);
