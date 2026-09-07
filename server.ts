@@ -347,10 +347,12 @@ const handleShutdown = async (signal: string) => {
 process.on("SIGTERM", () => handleShutdown("SIGTERM").catch(console.error));
 process.on("SIGINT", () => handleShutdown("SIGINT").catch(console.error));
 
-server.listen(port, () => {
-  console.log(
-    `Server listening on port ${port} [${process.env.NODE_ENV || "development"}]`,
-  );
-});
+if (!process.env.VERCEL) {
+  server.listen(port, () => {
+    console.log(
+      `Server listening on port ${port} [${process.env.NODE_ENV || "development"}]`,
+    );
+  });
+}
 
 export default app;
