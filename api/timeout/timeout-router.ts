@@ -187,10 +187,19 @@ router.post(
       const { orderId } = req.params as Record<string, string>;
       const { reason } = req.body;
 
-      const order = await orderTimeoutService.cancelOrder(
-        orderId,
-        reason || "Manually cancelled by user",
-      );
+      if (reason !== undefined && typeof reason !== "string") {
+        res.status(400).json({
+          message: "reason must be a string",
+        });
+        return;
+      }
+
+      const safeReason =
+        typeof reason === "string" && reason.trim().length > 0
+          ? reason.trim()
+          : "Manually cancelled by user";
+
+      const order = await orderTimeoutService.cancelOrder(orderId, safeReason);
 
       if (!order) {
         res.status(404).json({
