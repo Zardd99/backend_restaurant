@@ -4,9 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const apiLimiter_1 = require("../../middleware/apiLimiter");
 const auth_1 = require("../../middleware/auth");
 const Promotion_1 = __importDefault(require("../../models/Promotion"));
 const router = express_1.default.Router();
+router.use(apiLimiter_1.apiLimiter);
 router.get("/active", async (req, res) => {
     try {
         const now = new Date();

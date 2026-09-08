@@ -7,6 +7,7 @@ exports.requirePermission = exports.authorize = exports.authenticate = exports.a
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = __importDefault(require("../models/User"));
 const rbac_1 = require("../config/rbac");
+const userCache_1 = require("../utils/userCache");
 const authenticateWebSocket = (token) => {
     return new Promise((resolve, reject) => {
         if (!token) {
@@ -32,7 +33,14 @@ const authenticate = async (req, res, next) => {
             return;
         }
         const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
-        const user = await User_1.default.findById(decoded.id).select("-password");
+        let user = (0, userCache_1.getCachedUser)(decoded.id);
+        if (!user) {
+            const fetched = await User_1.default.findById(decoded.id).select("-password");
+            if (fetched) {
+                user = fetched;
+                (0, userCache_1.setCachedUser)(decoded.id, fetched);
+            }
+        }
         if (!user) {
             res.status(401).json({ message: "Token is not valid." });
             return;

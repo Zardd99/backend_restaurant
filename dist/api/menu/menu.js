@@ -4,9 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const apiLimiter_1 = require("../../middleware/apiLimiter");
 const menuController_1 = require("../../controllers/menuController");
 const auth_1 = require("../../middleware/auth");
 const router = express_1.default.Router();
+router.use(apiLimiter_1.apiLimiter);
 router.get("/", menuController_1.getAllMenu);
 router.get("/:id", menuController_1.getMenuId);
 router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)("menu:write"), menuController_1.createMenu);

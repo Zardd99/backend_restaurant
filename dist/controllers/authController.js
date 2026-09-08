@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.changePassword = exports.updateProfile = exports.getMe = exports.login = exports.register = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = __importDefault(require("../models/User"));
+const userCache_1 = require("../utils/userCache");
 const generateToken = (id) => {
     if (!process.env.JWT_SECRET) {
         throw new Error("JWT_SECRET environment variable is not defined");
@@ -123,12 +124,32 @@ const getMe = async (req, res) => {
 exports.getMe = getMe;
 const updateProfile = async (req, res) => {
     try {
-        const { name, phone } = req.body;
+        const { name, phone, birthdate, showBirthdayToOthers } = req.body;
         const updateData = {};
         if (name !== undefined)
             updateData.name = name;
         if (phone !== undefined)
             updateData.phone = phone;
+        if (birthdate !== undefined) {
+            if (birthdate === null || birthdate === "") {
+                updateData.birthdate = null;
+            }
+            else {
+                const parsed = new Date(birthdate);
+                if (Number.isNaN(parsed.getTime())) {
+                    res.status(400).json({ message: "Invalid birthdate" });
+                    return;
+                }
+                if (parsed.getTime() > Date.now()) {
+                    res.status(400).json({ message: "Birthdate cannot be in the future" });
+                    return;
+                }
+                updateData.birthdate = parsed;
+            }
+        }
+        if (showBirthdayToOthers !== undefined) {
+            updateData.showBirthdayToOthers = Boolean(showBirthdayToOthers);
+        }
         if (Object.keys(updateData).length === 0) {
             res.status(400).json({
                 message: "No valid fields provided for update",
@@ -139,6 +160,7 @@ const updateProfile = async (req, res) => {
             new: true,
             runValidators: true,
         });
+        (0, userCache_1.invalidateCachedUser)(req.user._id.toString());
         res.json({
             success: true,
             user,

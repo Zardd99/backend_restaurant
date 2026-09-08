@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const apiLimiter_1 = require("../../middleware/apiLimiter");
 const TableOccupancyService_1 = require("../../services/TableOccupancyService");
 const auth_1 = require("../../middleware/auth");
 const router = (0, express_1.Router)();
+router.use(apiLimiter_1.apiLimiter);
 router.use(auth_1.authenticate);
 router.get("/api/tables/occupancy-summary", (0, auth_1.requirePermission)("table:read"), async (req, res) => {
     try {
