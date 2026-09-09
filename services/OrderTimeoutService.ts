@@ -30,6 +30,9 @@ export class OrderTimeoutService {
     timeoutMinutes?: number,
   ): Promise<IOrder | null> {
     try {
+      if (!Types.ObjectId.isValid(orderId)) {
+        throw new Error("Invalid order ID");
+      }
       const order = await Order.findById(orderId);
       if (!order) {
         throw new Error(`Order ${orderId} not found`);
@@ -74,6 +77,12 @@ export class OrderTimeoutService {
     notes?: string,
   ): Promise<IChefPrepProgress | null> {
     try {
+      if (!Types.ObjectId.isValid(orderId)) {
+        throw new Error("Invalid order ID");
+      }
+      if (!["pending", "in-progress", "completed", "skipped", "failed"].includes(status)) {
+        throw new Error("Invalid prep step status");
+      }
       // Get or create prep progress
       let prepProgress = await ChefPrepProgress.findOne({
         orderId: new Types.ObjectId(orderId),
@@ -256,11 +265,15 @@ export class OrderTimeoutService {
    */
   async cancelOrder(orderId: string, reason: string): Promise<IOrder | null> {
     try {
+      if (!Types.ObjectId.isValid(orderId)) {
+        throw new Error("Invalid order ID");
+      }
+      const safeReason = String(reason).replace(/[\r\n]+/g, " ").slice(0, 500);
       const updatedOrder = await Order.findByIdAndUpdate(
         orderId,
         {
           status: "cancelled",
-          cancelledReason: reason,
+          cancelledReason: safeReason,
         },
         { new: true },
       );
@@ -271,12 +284,12 @@ export class OrderTimeoutService {
         {
           overallStatus: "cancelled",
           cancelledAt: new Date(),
-          cancelReason: reason,
+          cancelReason: safeReason,
         },
         { new: true },
       );
 
-      console.log(`Order ${orderId} cancelled: ${reason}`);
+      console.log(`Order ${orderId} cancelled: ${safeReason}`);
       return updatedOrder;
     } catch (error) {
       console.error(`Error cancelling order ${orderId}:`, error);

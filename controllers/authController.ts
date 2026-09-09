@@ -32,10 +32,14 @@ const generateToken = (id: string): string => {
  */
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body;
+    const normalizedEmail =
+      typeof req.body.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
 
     // Validate mandatory registration fields
-    if (!name || !email || !password) {
+    if (!name || !normalizedEmail || !password) {
       res.status(400).json({
         message: "Name, email, and password are required",
       });
@@ -43,7 +47,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Prevent duplicate account creation using the same email
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       res.status(400).json({ message: "User already exists with this email" });
       return;
@@ -53,7 +57,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // assigned only through the admin-only users API — never trust client role.
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password,
       role: "customer",
     });
@@ -90,6 +94,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         (err) => err.message,
       );
       res.status(400).json({ message: "Validation error", errors });
+    } else if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === 11000
+    ) {
+      res.status(409).json({ message: "User already exists with this email" });
     } else {
       // Fallback for unexpected server-side errors — log internally, do not leak
       console.error("register error:", error);
@@ -106,7 +117,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
  */
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email =
+      typeof req.body.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
 
     // Validate login payload
     if (!email || !password) {

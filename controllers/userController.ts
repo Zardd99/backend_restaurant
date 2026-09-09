@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { Types } from "mongoose";
 import User from "../models/User";
 import { AuthRequest } from "../middleware/auth";
 import { isRole } from "../config/rbac";
@@ -70,6 +71,11 @@ export const updateUser = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ message: "Invalid user ID" });
+      return;
+    }
+
     const { name, email, role, phone, isActive } = req.body;
 
     const demotesLastAdmin =
