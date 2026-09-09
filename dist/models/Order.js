@@ -38,12 +38,36 @@ const orderItemSchema = new mongoose_1.Schema({
     menuItem: { type: mongoose_1.Schema.Types.ObjectId, ref: "MenuItem", required: true },
     quantity: { type: Number, required: true, min: 1 },
     specialInstructions: { type: String, maxlength: 200 },
+    status: {
+        type: String,
+        enum: ["pending", "hold", "fired", "served"],
+        default: "pending",
+    },
     price: { type: Number, required: true },
     originalPrice: { type: Number },
     discountAmount: { type: Number, default: 0 },
     finalPrice: { type: Number },
     appliedPromotion: { type: mongoose_1.Schema.Types.ObjectId, ref: "Promotion" },
 });
+const splitPaymentSchema = new mongoose_1.Schema({
+    amount: { type: Number, required: true, min: 0 },
+    method: {
+        type: String,
+        enum: ["cash", "credit_card", "khqr"],
+        required: true,
+    },
+    referenceId: { type: String },
+    tipAmount: { type: Number, default: 0, min: 0 },
+    itemIds: [{ type: mongoose_1.Schema.Types.ObjectId }],
+    paidAt: { type: Date, default: Date.now },
+}, { _id: false });
+const orderRevisionSchema = new mongoose_1.Schema({
+    at: { type: Date, default: Date.now },
+    by: { type: mongoose_1.Schema.Types.ObjectId, ref: "User" },
+    change: { type: String, enum: ["add", "remove", "qty"], required: true },
+    menuItem: { type: mongoose_1.Schema.Types.ObjectId, ref: "MenuItem", required: true },
+    delta: { type: Number, required: true },
+}, { _id: false });
 const orderSchema = new mongoose_1.Schema({
     items: [orderItemSchema],
     totalAmount: { type: Number, required: true },
@@ -92,15 +116,25 @@ const orderSchema = new mongoose_1.Schema({
     cancelledReason: { type: String },
     paymentStatus: {
         type: String,
-        enum: ["unpaid", "paid"],
+        enum: ["unpaid", "partially_paid", "paid", "refunded"],
         default: "unpaid",
         index: true,
     },
     paymentMethod: {
         type: String,
-        enum: ["cash", "credit_card", "debit_card", "KHQR"],
+        enum: ["cash", "credit_card", "debit_card", "khqr", "KHQR", "split"],
         default: null,
     },
+    splitDetails: { type: [splitPaymentSchema], default: [] },
+    tipAmount: { type: Number, default: 0, min: 0 },
+    amountPaid: { type: Number, default: 0, min: 0 },
+    ticketStatus: {
+        type: String,
+        enum: ["active", "completed", "voided"],
+        default: "active",
+        index: true,
+    },
+    revisions: { type: [orderRevisionSchema], default: [] },
     paidAt: { type: Date },
 }, {
     timestamps: true,

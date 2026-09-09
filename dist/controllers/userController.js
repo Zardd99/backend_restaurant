@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteUser = exports.updateUserRole = exports.updateUser = exports.getUser = exports.getUsers = void 0;
 const User_1 = __importDefault(require("../models/User"));
 const rbac_1 = require("../config/rbac");
+const userCache_1 = require("../utils/userCache");
 const isLastActiveAdmin = async (userId) => {
     const target = await User_1.default.findById(userId);
     if (!target || target.role !== "admin")
@@ -64,6 +65,7 @@ const updateUser = async (req, res) => {
             res.status(404).json({ message: "User not found" });
             return;
         }
+        (0, userCache_1.invalidateCachedUser)(req.params.id);
         res.json({
             success: true,
             user,
@@ -93,6 +95,7 @@ const updateUserRole = async (req, res) => {
             res.status(404).json({ message: "User not found" });
             return;
         }
+        (0, userCache_1.invalidateCachedUser)(req.params.id);
         res.json({ success: true, user });
     }
     catch (error) {
@@ -114,6 +117,7 @@ const deleteUser = async (req, res) => {
             res.status(404).json({ message: "User not found" });
             return;
         }
+        (0, userCache_1.invalidateCachedUser)(req.params.id);
         res.json({
             success: true,
             message: "User deleted successfully",

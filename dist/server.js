@@ -12,6 +12,7 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const index_1 = require("./server/index");
 const db_1 = __importDefault(require("./config/db"));
 const rateLimter_1 = __importDefault(require("./middleware/rateLimter"));
+const mongoSanitize_1 = require("./middleware/mongoSanitize");
 const dependencies_1 = require("./config/dependencies");
 dotenv_1.default.config();
 const REQUIRED_ENV = ["JWT_SECRET", "MONGODB_URI"];
@@ -57,7 +58,8 @@ const corsOptions = {
         }
         else if (origin.match(/http:\/\/192\.168\.\d{1,3}\.\d{1,3}:3000$/) ||
             origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok\.io$/) ||
-            origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app$/)) {
+            origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app$/) ||
+            origin.match(/^https:\/\/restaurant-mangement-system[a-z0-9-]*\.vercel\.app$/i)) {
             callback(null, true);
         }
         else {
@@ -81,6 +83,7 @@ const corsOptions = {
 app.use((0, cors_1.default)(corsOptions));
 app.use(express_1.default.json({ limit: "1mb" }));
 app.use(express_1.default.urlencoded({ extended: true, limit: "1mb" }));
+app.use(mongoSanitize_1.mongoSanitize);
 app.use((0, rateLimter_1.default)({ windowMs: 15 * 60 * 1000, maxRequests: 2000 }));
 console.log("Setting up dependencies...");
 try {
@@ -127,9 +130,17 @@ const inventory_router_1 = __importDefault(require("./api/inventory/inventory-ro
 const promotions_1 = __importDefault(require("./api/promotions/promotions"));
 const timeout_router_1 = __importDefault(require("./api/timeout/timeout-router"));
 const tables_router_1 = __importDefault(require("./api/tables/tables-router"));
+const table_routes_1 = __importDefault(require("./api/tables/table_routes"));
 const notifications_1 = __importDefault(require("./api/notifications/notifications"));
 const support_1 = __importDefault(require("./api/support/support"));
 const billing_1 = __importDefault(require("./api/billing/billing"));
+const payments_1 = __importDefault(require("./api/billing/payments"));
+const order_edit_1 = __importDefault(require("./api/orders/order-edit"));
+const void_comp_1 = __importDefault(require("./api/orders/void-comp"));
+const table_ops_1 = __importDefault(require("./api/tables/table-ops"));
+const shifts_1 = __importDefault(require("./api/shifts/shifts"));
+const enterprise_operations_routes_1 = __importDefault(require("./api/routes/enterprise_operations_routes"));
+const inventory_routes_1 = __importDefault(require("./api/routes/inventory_routes"));
 const OrderTimeoutService_1 = require("./services/OrderTimeoutService");
 app.use("/api/orders", orders_1.default);
 app.use("/api/menu", menu_1.default);
@@ -142,12 +153,20 @@ app.use("/api/receipts", receipts_1.default);
 app.use("/api/auth", auth_1.default);
 app.use("/api/users", users_1.default);
 app.use("/api/inventory", inventory_router_1.default);
+app.use("/api/inventory", inventory_routes_1.default);
 app.use("/api/promotions", promotions_1.default);
 app.use(timeout_router_1.default);
+app.use("/api/tables", table_routes_1.default);
 app.use(tables_router_1.default);
 app.use("/api/notifications", notifications_1.default);
 app.use("/api/support", support_1.default);
 app.use("/api/billing", billing_1.default);
+app.use("/api/billing", payments_1.default);
+app.use("/api", order_edit_1.default);
+app.use("/api", void_comp_1.default);
+app.use("/api", table_ops_1.default);
+app.use("/api/shifts", shifts_1.default);
+app.use("/api/enterprise", enterprise_operations_routes_1.default);
 app.get("/", (req, res) => {
     res.json({
         message: "Restaurant Management API",

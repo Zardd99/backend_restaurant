@@ -4,10 +4,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const apiLimiter_1 = require("../../middleware/apiLimiter");
 const orderController_1 = require("../../controllers/orderController");
 const auth_1 = require("../../middleware/auth");
 const Order_1 = __importDefault(require("../../models/Order"));
 const router = express_1.default.Router();
+router.use(apiLimiter_1.apiLimiter);
 if (process.env.NODE_ENV !== "production") {
     router.post("/debug/order", (req, res) => {
         console.log("Received order data:", req.body);

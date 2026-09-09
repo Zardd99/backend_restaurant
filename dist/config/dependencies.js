@@ -14,6 +14,7 @@ const nodemailer_email_service_1 = require("../infrastructure/services/nodemaile
 const mock_low_stock_notification_repository_1 = require("../infrastructure/repositories/mock-low-stock-notification-repository");
 const Supplier_1 = require("../models/Supplier");
 const MenuItem_1 = __importDefault(require("../models/MenuItem"));
+const KdsPacingService_1 = require("../services/KdsPacingService");
 class DependencyContainer {
     constructor() {
         this.dependencies = new Map();
@@ -83,6 +84,7 @@ function setupDependencies() {
     };
     const inventoryManager = new inventory_manager_1.InventoryManager(checkLowStockUseCase, consumeIngredientsUseCase, emailService, lowStockNotificationRepository, ingredientRepository, alertConfig);
     container.register("InventoryManager", inventoryManager);
+    container.register("KdsPacingService", new KdsPacingService_1.KdsPacingService());
     console.log("Application dependency graph initialized successfully");
     return container;
 }

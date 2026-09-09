@@ -5,7 +5,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initWebSocketServer = initWebSocketServer;
 const socket_io_1 = require("socket.io");
+const redis_adapter_1 = require("@socket.io/redis-adapter");
+const ioredis_1 = require("ioredis");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+function attachRedisAdapter(io) {
+    const url = process.env.UPSTASH_REDIS_URL;
+    if (!url)
+        return;
+    try {
+        const pubClient = new ioredis_1.Redis(url, { lazyConnect: false });
+        const subClient = pubClient.duplicate();
+        pubClient.on("error", (err) => console.error("Socket.io Redis pub client error:", err.message));
+        subClient.on("error", (err) => console.error("Socket.io Redis sub client error:", err.message));
+        io.adapter((0, redis_adapter_1.createAdapter)(pubClient, subClient));
+        console.log("Socket.io Redis adapter attached (multi-instance fan-out).");
+    }
+    catch (error) {
+        console.error("Failed to attach Socket.io Redis adapter; falling back to in-memory:", error instanceof Error ? error.message : error);
+    }
+}
 function initWebSocketServer(server) {
     const io = new socket_io_1.Server(server, {
         cors: {
@@ -22,7 +40,8 @@ function initWebSocketServer(server) {
                 }
                 else if (origin.match(/http:\/\/192\.168\.\d{1,3}\.\d{1,3}:3000$/) ||
                     origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok\.io$/) ||
-                    origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app$/)) {
+                    origin.match(/https?:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app$/) ||
+                    origin.match(/^https:\/\/restaurant-mangement-system[a-z0-9-]*\.vercel\.app$/i)) {
                     callback(null, true);
                 }
                 else {
@@ -33,6 +52,7 @@ function initWebSocketServer(server) {
             credentials: true,
         },
     });
+    attachRedisAdapter(io);
     io.on("connection", (socket) => {
         console.log("Client connected:", socket.id);
         const token = socket.handshake.query.token;

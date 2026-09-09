@@ -37,18 +37,31 @@ const mongoose_1 = __importStar(require("mongoose"));
 const NotificationSchema = new mongoose_1.Schema({
     type: {
         type: String,
-        enum: ["order_created", "order_preparing", "order_ready", "order_served"],
+        enum: [
+            "order_created",
+            "order_preparing",
+            "order_ready",
+            "order_served",
+            "birthday_today",
+        ],
         required: true,
     },
-    orderId: { type: String, required: true },
+    orderId: {
+        type: String,
+        required: function () {
+            return this.type !== "birthday_today";
+        },
+    },
     tableNumber: { type: Number },
     customerName: { type: String },
     itemCount: { type: Number, required: true, default: 0 },
     actor: {
-        id: { type: String, required: true },
-        name: { type: String, required: true },
-        role: { type: String, required: true },
+        id: { type: String },
+        name: { type: String },
+        role: { type: String },
     },
+    title: { type: String },
+    message: { type: String },
     timestamp: { type: Date, required: true, default: Date.now },
     read: { type: Boolean, required: true, default: false },
 }, { timestamps: false });

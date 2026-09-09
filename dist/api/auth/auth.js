@@ -7,7 +7,9 @@ const express_1 = __importDefault(require("express"));
 const authController_1 = require("../../controllers/authController");
 const auth_1 = require("../../middleware/auth");
 const rateLimter_1 = __importDefault(require("../../middleware/rateLimter"));
+const apiLimiter_1 = require("../../middleware/apiLimiter");
 const router = express_1.default.Router();
+router.use(apiLimiter_1.apiLimiter);
 const authLimiter = (0, rateLimter_1.default)({
     windowMs: 15 * 60 * 1000,
     maxRequests: 10,
