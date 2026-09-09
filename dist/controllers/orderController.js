@@ -10,6 +10,7 @@ const Notification_1 = __importDefault(require("../models/Notification"));
 const StatsManager_1 = require("../domain/managers/StatsManager");
 const PromotionService_1 = require("../services/PromotionService");
 const TableOccupancyService_1 = require("../services/TableOccupancyService");
+const order_events_1 = require("../infrastructure/events/order-events");
 async function emitOrderNotification(io, payload) {
     io.emit("order:notification", payload);
     Notification_1.default.create({
@@ -121,6 +122,10 @@ const createOrder = async (req, res) => {
         }
         const order = new Order_1.default(orderData);
         const savedOrder = await order.save();
+        order_events_1.orderEventEmitter.emit(order_events_1.ORDER_CREATED, {
+            orderId: savedOrder._id.toString(),
+            items: savedOrder.items,
+        });
         await savedOrder.populate([
             { path: "items.menuItem", select: "name price" },
             {

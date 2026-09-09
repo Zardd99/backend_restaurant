@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const apiLimiter_1 = require("../../middleware/apiLimiter");
 const inventoryController_1 = require("../../controllers/inventoryController");
 const auth_1 = require("../../middleware/auth");
 const router = (0, express_1.Router)();
+router.use(apiLimiter_1.apiLimiter);
 router.use(auth_1.authenticate);
 const canCheckStock = (0, auth_1.requirePermission)("inventory:read", "order:create", "order:update", "order:status");
 const canDeductStock = (0, auth_1.requirePermission)("inventory:write", "order:create", "order:update", "order:status");

@@ -8,6 +8,7 @@ class ConsumeIngredientsUseCase {
         this.ingredientRepository = ingredientRepository;
     }
     async execute(request) {
+        var _a, _b, _c;
         try {
             if (request.quantity <= 0) {
                 return (0, result_1.err)(new Error("Quantity must be positive"));
@@ -22,16 +23,15 @@ class ConsumeIngredientsUseCase {
             if (!menuItem.isActive) {
                 return (0, result_1.err)(new Error("Menu item is not available"));
             }
-            const ingredientIds = menuItem
-                .getRequiredIngredients()
-                .map((ref) => ref.ingredientId);
+            const references = menuItem.getRequiredIngredients();
+            const ingredientIds = references.map((ref) => ref.ingredientId);
             const ingredientsResult = await this.ingredientRepository.findByIds(ingredientIds);
             if (!ingredientsResult.success)
                 return ingredientsResult;
-            const ingredients = ingredientsResult.value;
-            const ingredientMap = new Map(ingredients.map((ing) => [ing.id, ing]));
+            const ingredientMap = new Map(ingredientsResult.value.map((ingredient) => [ingredient.id, ingredient]));
             const warnings = [];
-            for (const ref of menuItem.getRequiredIngredients()) {
+            const deductions = [];
+            for (const ref of references) {
                 const ingredient = ingredientMap.get(ref.ingredientId);
                 if (!ingredient) {
                     return (0, result_1.err)(new Error(`Ingredient ${ref.ingredientId} not found`));
@@ -42,40 +42,38 @@ class ConsumeIngredientsUseCase {
                 if (ref.unit !== ingredient.unit) {
                     warnings.push(`Unit mismatch for ${ingredient.name}: Menu item uses ${ref.unit}, ingredient uses ${ingredient.unit}`);
                 }
-            }
-            const consumptionMap = new Map();
-            for (const ref of menuItem.getRequiredIngredients()) {
-                const totalQuantity = ref.quantity * request.quantity;
-                consumptionMap.set(ref.ingredientId, totalQuantity);
-            }
-            const consumptionResults = [];
-            const updatedIngredients = [];
-            for (const [ingredientId, quantity] of consumptionMap) {
-                const ingredient = ingredientMap.get(ingredientId);
-                if (quantity > ingredient.getStock()) {
-                    return (0, result_1.err)(new Error(`Insufficient stock for ${ingredient.name}. Available: ${ingredient.getStock()}${ingredient.unit}, Required: ${quantity}${ingredient.unit}`));
-                }
-                const consumeResult = ingredient.consume(quantity);
-                if (!consumeResult.success)
-                    return consumeResult;
-                updatedIngredients.push(consumeResult.value);
-                consumptionResults.push({
-                    ingredientId,
-                    consumedQuantity: quantity,
-                    remainingStock: consumeResult.value.getStock(),
-                    isLowStock: consumeResult.value.isLowStock(),
-                    needsReorder: consumeResult.value.needsReorder(),
+                deductions.push({
+                    ingredientId: ref.ingredientId,
+                    quantity: ref.quantity * request.quantity,
                 });
             }
-            for (const ingredient of updatedIngredients) {
-                const saveResult = await this.ingredientRepository.save(ingredient);
-                if (!saveResult.success)
-                    return saveResult;
+            const consumeResult = await this.ingredientRepository.consumeAtomic(deductions);
+            if (!consumeResult.success) {
+                const message = consumeResult.error.message;
+                if (message.startsWith("INSUFFICIENT_STOCK:")) {
+                    const failedId = message.split(":")[1];
+                    const name = (_b = (_a = ingredientMap.get(failedId)) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : failedId;
+                    return (0, result_1.err)(new Error(`Insufficient stock for ${name}`));
+                }
+                return (0, result_1.err)(consumeResult.error);
             }
+            const afterResult = await this.ingredientRepository.findByIds(ingredientIds);
+            const afterMap = afterResult.success
+                ? new Map(afterResult.value.map((ingredient) => [ingredient.id, ingredient]))
+                : ingredientMap;
             let totalCost = 0;
-            for (const ref of menuItem.getRequiredIngredients()) {
-                const ingredient = ingredientMap.get(ref.ingredientId);
-                totalCost += ingredient.calculateCost(ref.quantity * request.quantity);
+            const consumptionResults = [];
+            for (const deduction of deductions) {
+                const before = ingredientMap.get(deduction.ingredientId);
+                const after = (_c = afterMap.get(deduction.ingredientId)) !== null && _c !== void 0 ? _c : before;
+                totalCost += before.calculateCost(deduction.quantity);
+                consumptionResults.push({
+                    ingredientId: deduction.ingredientId,
+                    consumedQuantity: deduction.quantity,
+                    remainingStock: after.getStock(),
+                    isLowStock: after.isLowStock(),
+                    needsReorder: after.needsReorder(),
+                });
             }
             return (0, result_1.ok)({
                 success: true,

@@ -4,9 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const apiLimiter_1 = require("../../middleware/apiLimiter");
 const receiptController_1 = require("../../controllers/receiptController");
 const auth_1 = require("../../middleware/auth");
 const router = express_1.default.Router();
+router.use(apiLimiter_1.apiLimiter);
 router.use(auth_1.authenticate);
 router.get("/", (0, auth_1.requirePermission)("receipt:list"), receiptController_1.getAllReceipts);
 router.get("/order/:orderId", (0, auth_1.requirePermission)("receipt:read"), receiptController_1.getReceiptByOrderId);

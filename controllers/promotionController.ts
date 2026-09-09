@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { PromotionService } from "../services/PromotionService";
 import Promotion from "../models/Promotion";
 import { AuthRequest } from "../middleware/auth";
+import { Types } from "mongoose";
 import MenuItem from "@/models/MenuItem";
 
 const promotionService = new PromotionService();
@@ -96,6 +97,11 @@ export const updatePromotion = async (
   res: Response,
 ): Promise<void> => {
   try {
+    if (!Types.ObjectId.isValid(req.params.id as string)) {
+      res.status(400).json({ message: "Invalid promotion ID" });
+      return;
+    }
+
     // Validate dates if provided
     if (req.body.startDate && req.body.endDate) {
       if (new Date(req.body.startDate) >= new Date(req.body.endDate)) {
@@ -104,10 +110,32 @@ export const updatePromotion = async (
       }
     }
 
-    const promotion = await promotionService.updatePromotion(
-      req.params.id as string,
-      req.body,
-    );
+    const {
+      name,
+      description,
+      discountType,
+      discountValue,
+      appliesTo,
+      targetIds,
+      startDate,
+      endDate,
+      isActive,
+      minimumOrderAmount,
+      maxUsagePerCustomer,
+    } = req.body;
+    const promotion = await promotionService.updatePromotion(req.params.id as string, {
+      name,
+      description,
+      discountType,
+      discountValue,
+      appliesTo,
+      targetIds,
+      startDate,
+      endDate,
+      isActive,
+      minimumOrderAmount,
+      maxUsagePerCustomer,
+    });
     if (!promotion) {
       res.status(404).json({ message: "Promotion not found" });
       return;

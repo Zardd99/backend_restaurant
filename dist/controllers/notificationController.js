@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAllNotifications = exports.markAllRead = exports.getNotifications = void 0;
+exports.deleteAllNotifications = exports.markAllRead = exports.getUnreadCount = exports.getNotifications = void 0;
 const Notification_1 = __importDefault(require("../models/Notification"));
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -12,7 +12,7 @@ const getNotifications = async (req, res) => {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(req.query.limit) || DEFAULT_LIMIT));
         const skip = (page - 1) * limit;
-        const validTypes = ["order_created", "order_preparing", "order_ready", "order_served"];
+        const validTypes = ["order_created", "order_preparing", "order_ready", "order_served", "birthday_today"];
         const typeParam = req.query.type;
         const filter = typeParam && validTypes.includes(typeParam)
             ? { type: typeParam }
@@ -34,6 +34,16 @@ const getNotifications = async (req, res) => {
     }
 };
 exports.getNotifications = getNotifications;
+const getUnreadCount = async (_req, res) => {
+    try {
+        const count = await Notification_1.default.countDocuments({ read: false });
+        res.json({ count });
+    }
+    catch (error) {
+        res.status(500).json({ message: "Server error", error });
+    }
+};
+exports.getUnreadCount = getUnreadCount;
 const markAllRead = async (_req, res) => {
     try {
         await Notification_1.default.updateMany({ read: false }, { read: true });

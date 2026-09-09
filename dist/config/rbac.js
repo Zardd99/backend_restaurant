@@ -37,6 +37,15 @@ exports.PERMISSIONS = [
     "notification:read",
     "notification:manage",
     "user:manage",
+    "order:void",
+    "order:comp",
+    "shift:manage",
+    "audit:read",
+    "kds:read",
+    "kds:manage",
+    "inventory:waste",
+    "analytics:read",
+    "sync:write",
 ];
 const ALL_PERMISSIONS = [...exports.PERMISSIONS];
 exports.ROLE_PERMISSIONS = {
@@ -68,6 +77,15 @@ exports.ROLE_PERMISSIONS = {
         "review:write",
         "notification:read",
         "notification:manage",
+        "order:void",
+        "order:comp",
+        "shift:manage",
+        "audit:read",
+        "kds:read",
+        "kds:manage",
+        "inventory:waste",
+        "analytics:read",
+        "sync:write",
     ],
     chef: [
         "menu:read",
@@ -76,6 +94,9 @@ exports.ROLE_PERMISSIONS = {
         "order:read",
         "order:status",
         "notification:read",
+        "kds:read",
+        "kds:manage",
+        "inventory:waste",
     ],
     waiter: [
         "menu:read",
@@ -90,6 +111,8 @@ exports.ROLE_PERMISSIONS = {
         "table:read",
         "table:manage",
         "notification:read",
+        "kds:read",
+        "sync:write",
     ],
     cashier: [
         "menu:read",
@@ -99,6 +122,7 @@ exports.ROLE_PERMISSIONS = {
         "billing:pay",
         "receipt:read",
         "notification:read",
+        "shift:manage",
     ],
     customer: ["menu:read", "category:read", "order:create", "review:write"],
 };

@@ -73,6 +73,22 @@ const userSchema = new mongoose_1.Schema({
         type: String,
         match: [/^[0-9]{10,15}$/, "Please enter a valid phone number"],
     },
+    birthdate: {
+        type: Date,
+        default: null,
+        validate: {
+            validator: function (value) {
+                if (value === null || value === undefined)
+                    return true;
+                return value.getTime() <= Date.now();
+            },
+            message: "Birthdate cannot be in the future",
+        },
+    },
+    showBirthdayToOthers: {
+        type: Boolean,
+        default: true,
+    },
     isActive: {
         type: Boolean,
         default: true,

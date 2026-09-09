@@ -1,8 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MongoDBIngredientRepository = void 0;
 const ingredient_1 = require("../../models/ingredient");
 const result_1 = require("../../shared/result");
+const mongoose_1 = __importDefault(require("mongoose"));
 class MongoDBIngredientRepository {
     constructor(ingredientModel) {
         this.ingredientModel = ingredientModel;
@@ -104,6 +108,53 @@ class MongoDBIngredientRepository {
         }
         catch (error) {
             return (0, result_1.err)(new Error(`Failed to find low stock ingredients: ${error instanceof Error ? error.message : "Unknown error"}`));
+        }
+    }
+    async consumeAtomic(deductions, externalSession) {
+        const apply = async (session) => {
+            for (const deduction of deductions) {
+                if (deduction.quantity <= 0) {
+                    continue;
+                }
+                const result = await this.ingredientModel.updateOne({
+                    _id: deduction.ingredientId,
+                    isActive: true,
+                    currentStock: { $gte: deduction.quantity },
+                }, {
+                    $inc: { currentStock: -deduction.quantity },
+                    $set: { lastConsumed: new Date() },
+                }, { session });
+                if (result.modifiedCount !== 1) {
+                    throw new Error(`INSUFFICIENT_STOCK:${deduction.ingredientId}`);
+                }
+            }
+        };
+        if (externalSession) {
+            try {
+                await apply(externalSession);
+                return (0, result_1.ok)(undefined);
+            }
+            catch (error) {
+                return (0, result_1.err)(error instanceof Error
+                    ? error
+                    : new Error("Failed to consume ingredients atomically"));
+            }
+        }
+        const session = await mongoose_1.default.startSession();
+        try {
+            await session.withTransaction(apply, {
+                readConcern: { level: "snapshot" },
+                writeConcern: { w: "majority" },
+            });
+            return (0, result_1.ok)(undefined);
+        }
+        catch (error) {
+            return (0, result_1.err)(error instanceof Error
+                ? error
+                : new Error("Failed to consume ingredients atomically"));
+        }
+        finally {
+            await session.endSession();
         }
     }
 }

@@ -8,6 +8,7 @@ import { PromotionService } from "../services/PromotionService";
 import { tableOccupancyService } from "../services/TableOccupancyService";
 import { AuthRequest } from "../middleware/auth";
 import { Server as SocketServer } from "socket.io";
+import { Types } from "mongoose";
 import {
   orderEventEmitter,
   ORDER_CREATED,
@@ -322,7 +323,14 @@ export const updateOrder = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const order = await Order.findByIdAndUpdate(req.params.id, req.body, {
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ message: "Invalid order ID" });
+      return;
+    }
+
+    const { customerName, orderType, tableNumber, notes } = req.body;
+    const orderUpdates = { customerName, orderType, tableNumber, notes };
+    const order = await Order.findByIdAndUpdate(req.params.id, orderUpdates, {
       new: true,
       runValidators: true,
     })

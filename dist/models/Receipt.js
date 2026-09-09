@@ -39,7 +39,7 @@ const receiptSchema = new mongoose_1.Schema({
     receiptNumber: { type: String, required: true, unique: true },
     paymentMethod: {
         type: String,
-        enum: ["cash", "credit_card", "debit_card", "KHQR"],
+        enum: ["cash", "credit_card", "debit_card", "khqr", "KHQR", "split"],
         required: true,
     },
     paymentStatus: {
