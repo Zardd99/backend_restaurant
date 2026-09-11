@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import MenuItem, { IMenuItem } from "../models/MenuItem";
 import Category from "../models/Category";
 import { PromotionService } from "../services/PromotionService";
+import { Types } from "mongoose";
 
 interface FilterConditions {
   category?: string;
@@ -159,6 +160,11 @@ export const createMenu = async (
   res: Response,
 ): Promise<void> => {
   try {
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ message: "Invalid menu item ID" });
+      return;
+    }
+
     // Handle category name to ObjectId conversion
     if (req.body.category && typeof req.body.category === "string") {
       let category = await Category.findOne({ name: req.body.category });
@@ -220,7 +226,31 @@ export const updateMenu = async (
       req.body.category = category._id;
     }
 
-    const menuItem = await MenuItem.findByIdAndUpdate(req.params.id, req.body, {
+    const {
+      name,
+      description,
+      price,
+      costPrice,
+      preparationTime,
+      availability,
+      chefSpecial,
+      dietaryTags,
+      category,
+      ingredientReferences,
+    } = req.body;
+    const menuUpdates = {
+      name,
+      description,
+      price,
+      costPrice,
+      preparationTime,
+      availability,
+      chefSpecial,
+      dietaryTags,
+      category,
+      ingredientReferences,
+    };
+    const menuItem = await MenuItem.findByIdAndUpdate(req.params.id, menuUpdates, {
       new: true,
       runValidators: true,
     }).populate("category", "name");

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Types } from "mongoose";
 import {
   Supplier,
   ISupplier,
@@ -121,9 +122,15 @@ export const createSupplier = async (req: Request, res: Response) => {
  */
 export const updateSupplier = async (req: Request, res: Response) => {
   try {
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid supplier ID" });
+    }
+
+    const { name, description, contact, phone, email, address, isActive } =
+      req.body;
     const updatedSupplier = await Supplier.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { name, description, contact, phone, email, address, isActive },
       { new: true, runValidators: true },
     );
 

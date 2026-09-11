@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Order from "../models/Order";
 import Receipt from "../models/Receipt";
+import { Types } from "mongoose";
 
 /**
  * Generate a unique receipt number
@@ -23,6 +24,10 @@ export const createReceipt = async (
 ): Promise<void> => {
   try {
     const { orderId, paymentMethod, discount = 0 } = req.body;
+    if (typeof orderId !== "string" || !Types.ObjectId.isValid(orderId)) {
+      res.status(400).json({ message: "Invalid order ID" });
+      return;
+    }
 
     // Validate order exists
     const order = await Order.findById(orderId)
@@ -186,6 +191,10 @@ export const updateReceipt = async (
 ): Promise<void> => {
   try {
     const { paymentStatus, discount } = req.body;
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ message: "Invalid receipt ID" });
+      return;
+    }
 
     const updateData: any = {};
     if (paymentStatus) updateData.paymentStatus = paymentStatus;

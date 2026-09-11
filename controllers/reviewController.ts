@@ -19,6 +19,9 @@ interface FilterConditions {
     | Date;
 }
 
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /**
  * GET /api/reviews
  * Retrieves all reviews with optional filtering, sorting, and population of related data
@@ -59,7 +62,8 @@ export const getAllReviews = async (
     }
 
     if (comment) {
-      filter.comment = new RegExp(comment as string, "i");
+      const commentSearch = String(comment).slice(0, 200);
+      filter.comment = new RegExp(escapeRegex(commentSearch), "i");
     }
 
     if (dateFrom || dateTo) {

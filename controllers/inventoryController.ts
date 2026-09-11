@@ -26,6 +26,9 @@ import { IngredientRepository } from "../repositories/ingredient-repository";
 import { MenuItemRepository } from "../repositories/menu-item-repository";
 import { Ingredient } from "../models/ingredient";
 
+const sanitizeLogValue = (value: unknown, fallback: string): string =>
+  String(value ?? fallback).replace(/[\r\n]+/g, " ");
+
 const serializeIngredient = (ing: Ingredient) => ({
   id: ing.id,
   name: ing.name,
@@ -693,8 +696,10 @@ export class InventoryEndpoints {
       }
 
       // Placeholder for purchase order integration
+      const sanitizedIngredientId = sanitizeLogValue(ingredientId, "unknown");
+      const sanitizedQuantity = sanitizeLogValue(quantity, "default");
       console.log(
-        `Reorder requested for ingredient ${ingredientId}, quantity: ${quantity || "default"}`,
+        `Reorder requested for ingredient ${sanitizedIngredientId}, quantity: ${sanitizedQuantity}`,
       );
 
       const reorderId = `REORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -973,8 +978,9 @@ export class InventoryEndpoints {
         return;
       }
 
+      const sanitizedReason = sanitizeLogValue(reason, "n/a");
       console.log(
-        `Stock adjusted: ${ingredient.name} ${deltaNum > 0 ? "+" : ""}${deltaNum}${ingredient.unit} (reason: ${reason || "n/a"})`,
+        `Stock adjusted: ${ingredient.name} ${deltaNum > 0 ? "+" : ""}${deltaNum}${ingredient.unit} (reason: ${sanitizedReason})`,
       );
 
       res.json({ ok: true, value: serializeIngredient(saved.value) });
