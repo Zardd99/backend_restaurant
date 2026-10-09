@@ -214,7 +214,7 @@
     "kareem": "^2.6.3",
     "keyv": "^4.5.4",
     "language-subtag-registry": "^0.4.2",
-    "language-tags": "^1.0.9",
+    "language-tags": "^2.1.0",
     "levn": "^0.4.1",
     "locate-path": "^8.0.0",
     "lodash": "^4.18.1",
