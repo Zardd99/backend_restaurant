@@ -367,7 +367,7 @@
     "typed-array-byte-offset": "^1.0.4",
     "typed-array-length": "^1.0.7",
     "unbox-primitive": "^1.1.0",
-    "undici-types": "^6.21.0",
+    "undici-types": "^8.11.2",
     "unpipe": "^1.0.0",
     "unrs-resolver": "^1.11.1",
     "uri-js": "^4.4.1",
