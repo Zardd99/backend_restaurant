@@ -4,7 +4,7 @@ import {
   EmailContent,
 } from "../../services/email-service";
 import { Result, ok, err } from "../../shared/result";
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 export interface NodemailerConfig {
   host: string;
@@ -18,7 +18,7 @@ export interface NodemailerConfig {
 }
 
 export class NodemailerEmailService implements EmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter: Transporter;
   private fromAddress: string;
   private isClosed = false;
 
