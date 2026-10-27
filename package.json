@@ -342,7 +342,7 @@
     "string.prototype.trim": "^1.2.10",
     "string.prototype.trimend": "^1.0.9",
     "string.prototype.trimstart": "^1.0.8",
-    "strip-bom": "^3.0.0",
+    "strip-bom": "^5.0.0",
     "strip-json-comments": "^3.1.1",
     "styled-jsx": "^5.1.6",
     "supports-color": "^11.0.0",
