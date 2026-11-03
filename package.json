@@ -139,7 +139,7 @@
     "get-proto": "^1.0.1",
     "get-symbol-description": "^1.1.0",
     "get-tsconfig": "^4.10.1",
-    "glob": "^13.0.6",
+    "glob": "^14.0.2",
     "glob-parent": "^6.0.2",
     "globals": "^14.0.0",
     "globalthis": "^1.0.4",
