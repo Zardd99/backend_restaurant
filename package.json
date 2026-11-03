@@ -238,7 +238,7 @@
     "micromatch": "^4.0.8",
     "mime-db": "^1.54.0",
     "mime-types": "^3.0.2",
-    "minimatch": "^10.2.5",
+    "minimatch": "^11.0.1",
     "minimist": "^1.2.8",
     "minipass": "^7.1.2",
     "minizlib": "^3.0.2",
