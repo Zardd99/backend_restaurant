@@ -274,7 +274,7 @@
     "optionator": "^0.9.4",
     "own-keys": "^1.0.1",
     "p-limit": "^7.3.0",
-    "p-locate": "^5.0.0",
+    "p-locate": "^7.0.0",
     "parent-module": "^1.0.1",
     "parseurl": "^1.3.3",
     "path-exists": "^5.0.0",
